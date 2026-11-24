@@ -838,7 +838,9 @@ function listenOnce(cb,onEnd){
 }
 const NUMW={zero:0,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,seventeen:17,eighteen:18,nineteen:19,twenty:20,thirty:30,forty:40,fifty:50,sixty:60,seventy:70,eighty:80,ninety:90,hundred:100};
 const STOPW=new Set("a an the of in on at to for and or is are was were be by with from as it its this that which who into than then also per about rs rupee inr".split(" "));
-const ORDW={first:1,second:2,third:3,fourth:4,fifth:5,sixth:6,seventh:7,eighth:8,ninth:9,tenth:10,eleventh:11,twelfth:12,thirteenth:13,fourteenth:14,fifteenth:15,sixteenth:16,seventeenth:17,eighteenth:18,nineteenth:19,twentieth:20,thirtieth:30};
+let SWJ=new Set();
+const UNITW={pascal:"pa",pascals:"pa",kilometre:"km",kilometres:"km",kilometer:"km",kilometers:"km",metre:"m",metres:"m",meter:"m",meters:"m",hertz:"hz",kilohertz:"khz",megawatt:"mw",megawatts:"mw",gigawatt:"gw",gigawatts:"gw",kilowatt:"kw",kilowatts:"kw",watt:"w",watts:"w",kilogram:"kg",kilograms:"kg",gram:"g",grams:"g",decibel:"db",decibels:"db",volt:"v",volts:"v",ampere:"a",amperes:"a",amp:"a",amps:"a",ohm:"ω",ohms:"ω",hectare:"ha",hectares:"ha",litre:"l",litres:"l",liter:"l",liters:"l",kilobyte:"kb",megabyte:"mb",gigabyte:"gb",terabyte:"tb",rupees:"rs",rupee:"rs"};
+const ORDW={first:1,second:2,third:3,fourth:4,fifth:5,sixth:6,seventh:7,eighth:8,ninth:9,tenth:10,eleventh:11,twelfth:12,thirteenth:13,fourteenth:14,fifteenth:15,sixteenth:16,seventeenth:17,eighteenth:18,nineteenth:19,twentieth:20,thirtieth:30,fortieth:40,fiftieth:50,hundredth:100};
 /* the words said, plus joined forms: "eighteen ninety seven" also gives 1897, "son nagar" also gives sonnagar */
 function saidWords(t){const w=String(t||"").toLowerCase().replace(/(\d+)(st|nd|rd|th)\b/g,"$1").split(/\s+/).map(x=>ORDW[x.replace(/[^a-z]/g,"")]!==undefined?String(ORDW[x.replace(/[^a-z]/g,"")]):x).join(" ");
   const base=normWords(w);const n=base.map(x=>/^\d+$/.test(x)?+x:null);const nums=[];
@@ -847,22 +849,24 @@ function saidWords(t){const w=String(t||"").toLowerCase().replace(/(\d+)(st|nd|r
     if(base[j]==="thousand"){v*=1000;j++;let r=0;if(base[j]==="and")j++;if(j<base.length&&n[j]!==null){r=n[j];j++;if(j<base.length&&n[j]!==null&&r>=20&&r%10===0&&n[j]<10){r+=n[j];j++;}}nums.push(String(v+r));}
     else if(j<base.length&&n[j]!==null&&v>=10&&v<100){let r=n[j];let k=j+1;if(k<base.length&&n[k]!==null&&r>=20&&r%10===0&&n[k]<10)r+=n[k];if(r<100)nums.push(String(v*100+r));}
     nums.push(String(v));}
-  const joins=[];for(let i=0;i+1<base.length;i++)joins.push(base[i]+base[i+1]);
+  const joins=[];SWJ=new Set();for(let i=0;i+1<base.length;i++){const j=base[i]+base[i+1];if(/^\d+$/.test(j)){if(!/^\d+$/.test(base[i])||!/^\d+$/.test(base[i+1]))joins.push(j);else SWJ.add(j);}else joins.push(j);}
   return base.concat(nums,joins);}
-function normWords(t){return String(t||"").toLowerCase().replace(/(\d),(?=\d)/g,"$1").replace(/%/g," percent ").replace(/&/g," and ").replace(/[^a-z0-9.\s]/g," ").replace(/\.(?!\d)/g," ").split(/\s+/).filter(Boolean).map(w=>NUMW[w]!==undefined?String(NUMW[w]):w.replace(/(ies)$/,"y").replace(/(?<=[a-z]{3})s$/,""));}
+function normWords(t){return String(t||"").toLowerCase().replace(/(\d+)(st|nd|rd|th)\b/g,"$1").replace(/\b(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|thirtieth|fortieth|fiftieth|hundredth)\b/g,w=>String(ORDW[w])).replace(/(\d),(?=\d)/g,"$1").replace(/%/g," percent ").replace(/&/g," and ").replace(/[^a-z0-9.\s]/g," ").replace(/\.(?!\d)/g," ").split(/\s+/).filter(Boolean).map(w=>UNITW[w]||w).map(w=>NUMW[w]!==undefined?String(NUMW[w]):w.replace(/(ies)$/,"y").replace(/(?<=[a-z]{3})s$/,""));}
 function lev(a,b){if(a===b)return 0;const m=a.length,n=b.length;if(!m||!n)return m+n;let p=[...Array(n+1).keys()];for(let i=1;i<=m;i++){const c=[i];for(let j=1;j<=n;j++)c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1));p=c;}return p[n];}
 /* how much of the answer's key words were said: numbers must match exactly, words may be slightly off */
 /* checks each comma part of the answer: which parts were said, which were not, and whether a wrong number was said */
 function wordHit(k,sw){return /\d/.test(k)?sw.includes(k):sw.some(w=>w===k||(k.length>4&&w.length>3&&lev(w,k)<=Math.floor(k.length/4))||(k.length>5&&w.length>4&&(k.startsWith(w)||w.startsWith(k))));}
 function matchScore(said,answer){
-  const main=String(answer).split(/[(;]/)[0];const sw=saidWords(said);
-  const parts=main.split(/,|\band\b|\/|·|→/i).map(t=>t.trim()).filter(Boolean).map(t=>{const key=[...new Set(normWords(t).filter(w=>!STOPW.has(w)))];return {text:t,key};}).filter(p=>p.key.length);
+  const full=String(answer).replace(/(\d),(?=\d)/g,"$1");let main=full.split(/[(;]/)[0].trim();if(normWords(main).length<1)main=full.replace(/[()]/g," ");
+  const sw=saidWords(said);
+  const parts=main.split(/,|\band\b|·|→|\s\/\s/i).map(t=>t.trim()).filter(Boolean).map(t=>{let key=[...new Set(normWords(t).filter(w=>!STOPW.has(w)))];if(!key.length)key=[...new Set(normWords(t))];return {text:t,key};}).filter(p=>p.key.length);
   if(!parts.length||!sw.length)return {score:0,parts:parts.map(p=>({text:p.text,ok:false})),wrongNum:[]};
   let hitW=0,allW=0;
   parts.forEach(p=>{const h=p.key.filter(k=>wordHit(k,sw)).length;hitW+=h;allW+=p.key.length;const num=p.key.some(k=>/\d/.test(k));p.ok=num?h===p.key.length:h/p.key.length>=0.6;});
   const keyNums=new Set(parts.flatMap(p=>p.key.filter(k=>/^\d+$/.test(k))));
-  const saidNums=[...new Set(sw.filter(w=>/^\d+$/.test(w)))].sort((a,b)=>b.length-a.length);
-  const wrongNum=keyNums.size&&saidNums.length&&!sw.some(x=>keyNums.has(x))?[saidNums[0]]:[];
+  const saidNums=[...new Set(sw.filter(w=>/^\d+$/.test(w)&&!SWJ.has(w)))].sort((a,b)=>b.length-a.length);
+  const unsure=/\b(lakh|lakhs|crore|crores|hundred|thousand|million|billion)\b/i.test(said)&&/\b(one|two|three|four|five|six|seven|eight|nine|ten|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)\b/i.test(said);
+  const wrongNum=keyNums.size&&saidNums.length&&!unsure&&!sw.some(x=>keyNums.has(x))?[saidNums[0]]:[];
   const okN=parts.filter(p=>p.ok).length;
   let score=Math.max(hitW/allW,okN/parts.length);
   if(okN&&okN<parts.length)score=Math.max(score,parts[0].ok?0.5:0.4);
