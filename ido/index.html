@@ -129,6 +129,26 @@ input[type=date]{font:inherit;padding:6px 10px;border:1px solid var(--line);bord
 .day.now{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold)}
 .day.t-mock{background:var(--accent-soft)} .day.t-revise{background:var(--gold-soft)}
 .day.done{opacity:.6}
+/* lesson boxes */
+.lesson .box{border-radius:12px;padding:12px 14px;margin:16px 0;font-family:var(--font-ui);font-size:15.5px;line-height:1.6}
+.lesson .box p{margin:0 0 6px}.lesson .box p:last-child{margin:0}
+.lesson .box .bh{display:block;font-size:12px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;margin-bottom:4px}
+.lesson .box.story{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:0 12px 12px 0;font-family:var(--font-read);font-size:17px;font-style:italic}
+.lesson .box.story .bh{font-style:normal;font-family:var(--font-ui);color:var(--gold)}
+.lesson .box.trick{background:var(--gold-soft)}.lesson .box.trick .bh{color:var(--gold)}
+.lesson .box.eng{background:var(--accent-soft)}.lesson .box.eng .bh{color:var(--accent)}
+.lesson .box.twist{background:var(--bad-soft)}.lesson .box.twist .bh{color:var(--bad)}
+.lesson .box code{font-family:ui-monospace,Menlo,monospace;font-size:.92em;background:var(--surface);padding:1px 5px;border-radius:5px}
+.qc{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:12px 14px;margin:16px 0;font-family:var(--font-ui);font-size:15px}
+.qc .bh{display:block;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px}
+.qc .qopts{display:grid;gap:6px;margin-top:8px}
+.qc .qexp{margin-top:8px;font-size:14px}
+.ring{width:84px;height:84px;flex:none}
+.fc{border:1px solid var(--line);background:var(--surface);border-radius:16px;min-height:220px;padding:22px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;cursor:pointer;gap:10px}
+.fc .front{font-size:19px;font-weight:700;line-height:1.35}
+.fc .back{font-size:18px;color:var(--good);font-weight:600;line-height:1.4}
+.rate{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.rate button small{display:block;font-size:11px;color:var(--muted);font-weight:500}
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
 nav.tabs .in{max-width:760px;margin:0 auto;display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
 nav.tabs a{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px 9px;text-decoration:none;color:var(--muted);font-size:12px;font-weight:600}
@@ -332,7 +352,7 @@ const lessonMeta=id=>{for(const m of MAN.modules){const l=m.lessons.find(x=>x.id
 const allLessonCount=()=>MAN.modules.reduce((a,m)=>a+m.lessons.length,0);
 
 /* ---------- state ---------- */
-const DEF={v:1,done:{},qs:{},weak:[],mocks:[],start:null,last:0,seen:0};
+const DEF={v:1,done:{},qs:{},weak:[],mocks:[],start:null,last:0,seen:0,cards:{},days:{},newDay:null};
 let S=structuredClone(DEF); let N={items:[],last:0};
 try{const a=JSON.parse(localStorage.getItem(LS+"state")||"null");if(a)S=Object.assign(structuredClone(DEF),a);}catch(e){}
 try{const b=JSON.parse(localStorage.getItem(LS+"notes")||"null");if(b)N=b;}catch(e){}
@@ -398,7 +418,21 @@ function md(text){
   if(inList)out+="</ul>";return out;
 }
 function stats(){let c=0,w=0;for(const k in S.qs){c+=S.qs[k].c;w+=S.qs[k].w;}return{c,w,acc:c+w?Math.round(100*c/(c+w)):null};}
-function recordAnswer(qid,ok){
+const GOAL=40;
+function dkey(t){t=t||new Date();return t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0");}
+function dayNum(){const t=new Date();return Math.floor((t.getTime()-t.getTimezoneOffset()*60000)/DAY);}
+function bump(n){S.days=S.days||{};const k=dkey();S.days[k]=(S.days[k]||0)+n;const ks=Object.keys(S.days).sort();if(ks.length>150)ks.slice(0,ks.length-150).forEach(x=>delete S.days[x]);}
+function todayPts(){return (S.days||{})[dkey()]||0;}
+function streak(){let n=0;for(let i=0;i<400;i++){const v=(S.days||{})[dkey(new Date(Date.now()-i*DAY))]||0;if(v>=GOAL)n++;else if(i===0)continue;else break;}return n;}
+function allCards(){const out=[];for(const lid in S.done){const r=LIDX[lid];if(!r||r.l.paper)continue;(r.l.facts||[]).forEach((f,i)=>out.push({id:lid+"f"+i,lid,f:f[0],b:f[1]}));(r.l.cards||[]).forEach((c,i)=>out.push({id:lid+"c"+i,lid,f:c[0],b:c[1]}));}return out;}
+function deck(){const today=dayNum();const st=S.cards||{};const all=allCards();const due=all.filter(c=>st[c.id]&&st[c.id].d<=today);const nt=(S.newDay&&S.newDay.d===today)?S.newDay.n:0;const fresh=all.filter(c=>!st[c.id]).slice(0,Math.max(0,15-nt));return {due,fresh,total:all.length,learned:Object.keys(st).length};}
+function rateCard(c,r){const today=dayNum();S.cards=S.cards||{};const old=S.cards[c.id];let i=old?old.i:0;
+  if(r==="again")i=0;else if(r==="hard")i=Math.max(1,Math.round(i*1.2));else if(r==="good")i=i<1?1:Math.round(i*2.3);else i=i<1?4:Math.round(i*3.2);
+  S.cards[c.id]={i,d:today+(r==="again"?0:i)};
+  if(!old){S.newDay=(S.newDay&&S.newDay.d===today)?{d:today,n:S.newDay.n+1}:{d:today,n:1};}
+  bump(1);persist("s");}
+function ringSvg(p){const r=34,c=2*Math.PI*r,v=Math.min(1,p);return `<svg class="ring" viewBox="0 0 84 84" role="img" aria-label="Daily goal ${Math.round(v*100)}%"><circle cx="42" cy="42" r="${r}" fill="none" stroke="var(--line)" stroke-width="8"/><circle cx="42" cy="42" r="${r}" fill="none" stroke="${v>=1?"var(--good)":"var(--gold)"}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c*(1-v)}" transform="rotate(-90 42 42)"/><text x="42" y="47" text-anchor="middle" font-size="16" font-weight="700" fill="var(--ink)">${Math.round(v*100)}%</text></svg>`;}
+function recordAnswer(qid,ok){bump(1);
   const r=S.qs[qid]||(S.qs[qid]={c:0,w:0,l:0});
   if(ok){r.c++;r.l=1;S.weak=S.weak.filter(x=>x!==qid);}else{r.w++;r.l=0;if(!S.weak.includes(qid))S.weak.push(qid);}
 }
@@ -411,7 +445,7 @@ function render(soft){
   const {v,a}=parseHash();
   if(MOCK&&MOCK.timer&&v!=="mock"){/* keep timer running */}
   CUR_LESSON=null; $("#fab").hidden=true;
-  const TAB={home:"today",learn:"learn",module:"learn",lesson:"learn",practice:"practice",quiz:"practice",mock:"practice",papers:"practice",paper:"practice",weak:"practice",progress:"progress",plan:"progress",more:"more",notes:"more",data:"more"};
+  const TAB={cards:"practice",numbers:"learn",home:"today",learn:"learn",module:"learn",lesson:"learn",practice:"practice",quiz:"practice",mock:"practice",papers:"practice",paper:"practice",weak:"practice",progress:"progress",plan:"progress",more:"more",notes:"more",data:"more"};
   const cur=TAB[v]||"today"; document.querySelectorAll("nav.tabs a").forEach(a=>{a.classList.toggle("on",a.dataset.tab===cur);if(a.dataset.tab===cur)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current");});
   if(v==="module")return viewModule(a);
   if(v==="lesson")return viewLesson(a);
@@ -424,6 +458,8 @@ function render(soft){
   if(v==="practice")return viewPractice();
   if(v==="progress")return viewProgress();
   if(v==="more")return viewMore();
+  if(v==="cards")return viewCards();
+  if(v==="numbers")return viewNumbers(a);
   if(v==="papers")return viewPapers();
   if(v==="data")return viewData();
   if(v==="paper")return viewPaper(a);
@@ -462,10 +498,8 @@ function viewHome(){
     ${news.length?`<a class="card" href="#more" style="text-decoration:none;color:var(--ink);border-color:var(--accent);display:flex;align-items:center;gap:12px"><span style="flex:1;min-width:0"><span class="eyebrow" style="color:var(--accent)">What's new</span><br><span class="small">${esc(news[0].items[0])}</span></span><span class="small" style="color:var(--accent);white-space:nowrap">See all ›</span></a>`:""}
     <section class="card today">${todayHtml}</section>
     ${nl?`<section class="card"><div class="eyebrow">Continue learning</div><h3 style="margin:6px 0 4px">${esc(nl.l.title)}</h3><p class="small muted" style="margin:0 0 10px">${esc(nl.m.title)}</p><a class="btn primary" href="#lesson-${nextId}">Open lesson</a></section>`:""}
-    <section class="grid2">
-      <a class="tile" href="#progress" style="text-decoration:none;color:var(--ink)"><div class="k">Lessons done</div><div class="v">${done}<span class="muted small">/${total}</span></div></a>
-      <a class="tile" href="#weak" style="text-decoration:none;color:var(--ink)"><div class="k">Weak questions to revise</div><div class="v">${S.weak.length}</div></a>
-    </section>
+    ${(()=>{const dk=deck();const n=dk.due.length+dk.fresh.length;const pts=todayPts();const st=streak();return `<section class="card row" style="gap:16px;align-items:center">${ringSvg(pts/GOAL)}<div class="grow" style="flex:1;min-width:0"><div class="eyebrow">Daily goal</div><div style="font-weight:700;font-size:17px">${pts>=GOAL?"Goal reached today":`${Math.max(0,GOAL-pts)} points to go`}</div><div class="small muted">Streak: ${st} day${st===1?"":"s"} · questions and flashcards 1 point, lessons 10</div></div></section>
+    <a class="card" href="#cards" style="text-decoration:none;color:var(--ink);display:flex;align-items:center;gap:12px"><span style="flex:1"><span class="eyebrow">Flashcards</span><br><b style="font-size:17px">${n?`${n} card${n>1?"s":""} to review today`:dk.total?"All caught up for today":"Your deck is empty"}</b><br><span class="small muted">${dk.total?`${dk.learned} of ${dk.total} facts learned`:"Finish a lesson to add its key facts"}</span></span><span class="btn sm ${n?"primary":""}">${n?"Start":"Open"}</span></a>`;})()}
   </div>`;
 }
 
@@ -491,7 +525,7 @@ function viewModule(id){
   app.innerHTML=`<div class="stack">
     <a href="#learn" class="small">‹ Syllabus</a>
     <div><div class="eyebrow">${m.marks} marks in the exam</div><h1>${esc(m.title)}</h1><p class="muted" style="margin:6px 0 0">${p.d} of ${p.t} lessons done${avail?` · ${qn} practice questions`:""}</p></div>
-    ${avail?`<div class="row"><a class="btn primary" href="#quiz-mod-${m.id}">Practise the whole module</a></div>`:`<p class="notice">This module is being written. Its lessons will appear here as they're added.</p>`}
+    ${avail?`<div class="row"><a class="btn primary" href="#quiz-mod-${m.id}">Practise the whole module</a><a class="btn" href="#numbers-${m.id}">Numbers only</a></div>`:`<p class="notice">This module is being written. Its lessons will appear here as they're added.</p>`}
     <div class="list">${rows}</div>
     ${avail&&avail.sources?`<details class="card small"><summary><b>Sources used for this module</b></summary><ul>${avail.sources.map(s=>`<li><a href="${esc(s[1])}" target="_blank" rel="noopener">${esc(s[0])}</a></li>`).join("")}</ul></details>`:""}
   </div>`;
@@ -514,6 +548,7 @@ function viewLesson(id){
     <div class="traps"><ul style="margin:0;padding-left:20px">${l.traps.map(t=>`<li>${esc(t)}</li>`).join("")}</ul></div>
     <h2>60-second recap</h2>
     <div class="card"><ol style="margin:0;padding-left:20px">${l.recap.map(t=>`<li>${esc(t)}</li>`).join("")}</ol></div>
+    <p class="small muted" style="margin:0">${S.done[id]?`This lesson's ${l.facts.length+(l.cards||[]).length} key facts are in your flashcard deck.`:`Mark the lesson as done to add its ${l.facts.length+(l.cards||[]).length} key facts to your daily flashcards.`}</p>
     ${notes.length?`<h2>Your saved notes</h2><div class="stack">${notes.map(n=>`<div class="card"><div class="small muted">You asked: ${esc(n.q)}</div><div class="msg a" style="margin-top:6px">${md(n.a)}</div></div>`).join("")}</div>`:""}
     <div class="row" style="margin-top:8px">
       <button class="btn ${S.done[id]?"":"primary"}" id="markdone">${S.done[id]?"Done ✓ (tap to undo)":"Mark lesson as done"}</button>
@@ -521,7 +556,8 @@ function viewLesson(id){
       ${nextOk?`<a class="btn ghost" href="#lesson-${next.id}">Next lesson ›</a>`:""}
     </div>
   </article>`;
-  $("#markdone").onclick=()=>{if(S.done[id])delete S.done[id];else S.done[id]=Date.now();persist("s");viewLesson(id);};
+  $("#markdone").onclick=()=>{if(S.done[id])delete S.done[id];else{S.done[id]=Date.now();bump(10);}persist("s");viewLesson(id);};
+  hydrateChecks();
   app.querySelectorAll(".askline").forEach(b=>b.onclick=()=>openAsk({lesson:l,section:l.sections[+b.dataset.sec].h}));
   $("#fab").hidden=false; $("#fab").onclick=()=>openAsk({lesson:l});
   setupListen(l);
@@ -838,6 +874,7 @@ function viewPractice(){
   const pool=mockPool().length;
   app.innerHTML=`<div class="stack">
     <div><div class="eyebrow">Questions and tests</div><h1>Practice</h1></div>
+    ${(()=>{const dk=deck();const n=dk.due.length+dk.fresh.length;return `<a class="li card" href="#cards" style="border-radius:var(--r)"><span class="grow"><span class="t">Flashcards</span><br><span class="small muted">Spaced repetition of key facts from finished lessons</span></span><span class="chip ${n?"gold":"mute"}">${n} due</span></a>`;})()}
     <section class="card stack" style="gap:8px"><div class="sec-h"><h2>Mock test</h2><span class="small muted">${pool} questions in the bank</span></div><p class="small muted" style="margin:0">Timed, with −${MAN.exam.negative} for each wrong answer, like the real exam.</p><div class="row"><a class="btn primary" href="#mock">Start a mock test</a></div></section>
     <section class="stack" style="gap:8px"><h2>Weak areas</h2>
       <a class="li card" href="#weak" style="border-radius:var(--r)"><span class="grow"><span class="t">Questions you got wrong</span><br><span class="small muted">Answer one correctly and it leaves the list</span></span><span class="chip ${S.weak.length?"bad":"mute"}">${S.weak.length}</span></a></section>
@@ -902,6 +939,46 @@ function viewMore(){
   const sn=$("#seen"); if(sn)sn.onclick=()=>{S.seen=Math.max(...news.map(c=>c.v));persist("s");viewMore();};
   const cp=$("#copyprompt");if(cp)cp.onclick=async()=>{try{await navigator.clipboard.writeText(PROMPT);cp.textContent="Copied ✓";}catch(e){cp.textContent="Copy not allowed here";}};
   const lk=$("#lockbtn2"); if(lk)lk.onclick=()=>ENV.lock();
+}
+
+function hydrateChecks(){
+  app.querySelectorAll(".qc").forEach(box=>{
+    if(box.dataset.ready)return;box.dataset.ready="1";
+    const a=+box.dataset.a, e=box.dataset.e||""; const items=[...box.querySelectorAll("li")].map(li=>li.innerHTML);
+    const q=box.querySelector("p")?box.querySelector("p").innerHTML:"";
+    box.innerHTML=`<span class="bh">Quick check</span><div>${q}</div><div class="qopts">${items.map((t,j)=>`<button class="opt" data-j="${j}"><span class="lt">${LETTERS[j]}</span><span>${t}</span></button>`).join("")}</div><div class="qexp" hidden></div>`;
+    box.querySelectorAll(".opt").forEach(b=>b.onclick=()=>{
+      const j=+b.dataset.j; box.querySelectorAll(".opt").forEach((x,k)=>{x.disabled=true;if(k===a)x.classList.add("right");else if(k===j)x.classList.add("wrong");});
+      const ex=box.querySelector(".qexp");ex.hidden=false;ex.innerHTML=`<b>${j===a?"Correct.":"Not quite."}</b> ${e}`;bump(1);persist("s");
+    });
+  });
+}
+let CQ=null;
+function viewCards(){
+  if(!CQ||CQ.day!==dayNum()){const dk=deck();CQ={day:dayNum(),q:shuffle(dk.due).concat(dk.fresh),done:0,show:false};}
+  if(!CQ.q.length){const d0=deck();if(d0.due.length+d0.fresh.length)CQ.q=shuffle(d0.due).concat(d0.fresh);}
+  if(!CQ.q.length){const dk=deck();app.innerHTML=`<div class="stack"><a class="small" href="#practice">‹ Practice</a><h1>Flashcards</h1>
+    <div class="card"><b>${dk.total?"All caught up for today.":"Your deck is empty."}</b><p class="small muted" style="margin:6px 0 0">${dk.total?`You've reviewed ${CQ.done} card${CQ.done===1?"":"s"} today. ${dk.learned} of ${dk.total} facts are in rotation; cards you know well come back after days or weeks.`:"Each lesson's key facts join the deck when you mark the lesson as done."}</p></div>
+    <a class="btn" href="#home">Back to Today</a></div>`;return;}
+  const c=CQ.q[0]; const r=LIDX[c.lid]; const st=(S.cards||{})[c.id];
+  const lab=n=>n<1?"<1 d":n+" d"; const i=st?st.i:0;
+  const nxt={again:"today",hard:lab(Math.max(1,Math.round(i*1.2))),good:lab(i<1?1:Math.round(i*2.3)),easy:lab(i<1?4:Math.round(i*3.2))};
+  app.innerHTML=`<div class="stack">
+    <div class="row" style="justify-content:space-between"><a class="small" href="#practice">‹ Practice</a><span class="small muted">${CQ.q.length} left · ${st?"review":"new"}</span></div>
+    <div class="fc" id="fc"><div class="small muted">${esc(r?r.l.title:"")}</div><div class="front">${esc(c.f)}</div>${CQ.show?`<div class="back">${esc(c.b)}</div>`:`<div class="small muted">Say the answer, then tap to check</div>`}</div>
+    ${CQ.show?`<div class="rate"><button class="btn" data-r="again">Again<small>${nxt.again}</small></button><button class="btn" data-r="hard">Hard<small>${nxt.hard}</small></button><button class="btn" data-r="good">Good<small>${nxt.good}</small></button><button class="btn primary" data-r="easy">Easy<small>${nxt.easy}</small></button></div>`:`<button class="btn primary" id="reveal">Show answer</button>`}
+  </div>`;
+  const rv=()=>{CQ.show=true;viewCards();};
+  $("#fc").onclick=()=>{if(!CQ.show)rv();}; const b=$("#reveal"); if(b)b.onclick=rv;
+  app.querySelectorAll("[data-r]").forEach(x=>x.onclick=()=>{const r2=x.dataset.r;rateCard(c,r2);CQ.q.shift();if(r2==="again")CQ.q.push(c);CQ.done++;CQ.show=false;viewCards();});
+}
+function viewNumbers(mid){
+  const m=modById(mid); const d=MODS[mid]; if(!m||!d){location.hash="learn";return;}
+  app.innerHTML=`<div class="stack">
+    <a class="small" href="#module-${mid}">‹ ${esc(m.title)}</a>
+    <div><div class="eyebrow">Revision</div><h1>Numbers only</h1><p class="muted" style="margin:6px 0 0">Every date, section, limit and figure in this module on one screen. Cover the right column and test yourself.</p></div>
+    ${d.lessons.map(l=>`<h2>${esc(l.title)}</h2><div class="card" style="padding:4px 6px"><table class="facts">${l.facts.map(f=>`<tr><td>${esc(f[0])}</td><td>${esc(f[1])}</td></tr>`).join("")}</table></div>`).join("")}
+  </div>`;
 }
 
 /* ---------- boot ---------- */
