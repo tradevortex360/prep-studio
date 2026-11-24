@@ -674,7 +674,7 @@ function dayItems(ti,label){
     if(e.side_task){const pp=/2019/.test(e.side_task)&&PYQ;items.push(`<${pp?'a href="#quiz-pps-y2019"':"div"} class="li">${ck("st")}<span class="grow"><span class="small muted">Practice · 30 min${pp?" · ticks itself when you finish":""}</span><br><span class="t">${esc(e.side_task.replace(" (Past papers)",""))}</span></span>${pp?'<span class="muted">›</span>':""}</${pp?"a":"div"}>`);}
     if(e.mod){const m=modById(e.mod);items.push(`<a class="li" href="#module-${m.id}">${ck("rv")}<span class="grow"><span class="small muted">Revision</span><br><span class="t">${esc(m.title)}</span></span></a>`);}
     if(e.task)items.push(`<${e.t==="mock"?'a href="#mock"':(/Interview/.test(e.task)?'a href="#interview"':'a href="#crash"')} class="li">${ck("tk")}<span class="grow"><span class="small muted">${e.t==="mock"?"Mock test · ticks itself when you submit":"Revision · opens your crash-revision plan"}</span><br><span class="t">${esc(e.task)}</span></span><span class="muted">›</span></a>`);
-    if(ti>0)items.push(`<div class="li">${ck("rc")}<span class="grow"><span class="small muted">15 min · tap the circle when done</span><br><span class="t">Revise the previous day's recap</span></span></div>`);
+    if(ti>0){const RL=recallLessons(ti);items.push(RL.length?`<a class="li" href="#quiz-rc-${ti}">${ck("rc")}<span class="grow"><span class="small muted">10 min · 10 new questions · ticks itself when you finish</span><br><span class="t">Recall test: ${esc(RL.map(x=>LIDX[x].l.title).join(" + "))}</span></span><span class="muted">›</span></a>`:`<div class="li">${ck("rc")}<span class="grow"><span class="small muted">15 min · tap the circle when done</span><br><span class="t">Revise the previous day's recap</span></span></div>`);}
     return `<div class="row" style="justify-content:space-between"><div class="eyebrow">${label} · Week ${e.w} · Day ${ti+1} of ${cal.length}${MAN.phases&&e.p?" · "+esc(MAN.phases[e.p]):""}</div><span class="small muted">${fmtDate(d)}</span></div><div class="list" style="margin-top:10px">${items.join("")}</div>`;
 }
 function viewHome(){
@@ -887,11 +887,17 @@ $("#askform").addEventListener("submit",async e=>{
 
 /* ---------- quiz ---------- */
 let QZ=null;
+function recallLessons(day){for(let i=day-1;i>=0;i--){const e=MAN.calendar[i];const L=[e.core,e.side].filter(x=>x&&LIDX[x]);if(L.length)return L;}return [];}
 function buildQuiz(key){
   let ids=[],title="",back="#home",lesson=null;
   if(key==="weak"){ids=S.weak.filter(q=>QIDX[q]);title="Weak areas";back="#weak";}
   if(key==="rapid"){ids=shuffle(S.weak.filter(q=>QIDX[q])).slice(0,8);const need=15-ids.length;ids=ids.concat(shuffle(mockPool().filter(k=>!ids.includes(k))).slice(0,need));title="Rapid revision";back="#crash";}
   else if(key.startsWith("pp-")||key.startsWith("pps-")){const only=key.startsWith("pps-");const pid=key.slice(key.indexOf("-")+1);const p=PYQ&&PYQ.papers.find(x=>x.id===pid);if(p){ids=p.questions.filter(q=>!only||q.sec!=="gs").map(q=>q.id);title=p.title;back="#paper-"+pid;}}
+  else if(key.startsWith("rc-")){const day=+key.slice(3);const L=recallLessons(day);const inL=k=>L.includes(QIDX[k].lid)&&!QIDX[k].hard;
+    const all=Object.keys(QIDX).filter(inL);const fresh=k=>!(S.qs||{})[k];
+    const tiers=[all.filter(k=>QIDX[k].bank&&fresh(k)),all.filter(k=>!QIDX[k].bank&&fresh(k)),all.filter(k=>!fresh(k)&&S.qs[k].w>0),all.filter(k=>!fresh(k)&&!(S.qs[k].w>0))];
+    ids=[];tiers.forEach(t=>{if(ids.length<10)ids=ids.concat(shuffle(t).slice(0,10-ids.length));});ids=shuffle(ids);
+    title="Recall test";back="#home";}
   else if(key.startsWith("mod-")){const mid=key.slice(4);const d=MODS[mid];if(d)d.lessons.forEach(l=>l.mcqs.forEach(q=>ids.push(q.id)));for(const k in QIDX)if(QIDX[k].bank&&QIDX[k].mid===mid)ids.push(k);title=modById(mid).title;back="#module-"+mid;ids=shuffle(ids);}
   else{const r=LIDX[key];if(r){ids=r.l.mcqs.map(q=>q.id);title=r.l.title;back="#lesson-"+key;lesson=r.l;}}
   return {key,title,back,lesson,items:ids.map(id=>({q:QIDX[id].q,id,lid:QIDX[id].lid})),i:0,ans:{},score:0};
@@ -915,7 +921,7 @@ function viewQuiz(key,soft){
     if(!it.gen){if(QZ.retry){bump(1);if(ok)S.weak=S.weak.filter(x=>x!==it.id);}else recordAnswer(it.id,ok);persist("s");}
     viewQuiz(key,true);
   });
-  const nx=$("#qnext"); if(nx)nx.onclick=()=>{if(QZ.i+1<QZ.items.length){QZ.i++;viewQuiz(key,true);}else{QZ.finished=true;if(/^pps?-y2019$/.test(QZ.key)){const cand=[todayIdx(),activeDay()].find(i=>MAN.calendar[i]&&/2019/.test(MAN.calendar[i].side_task||""));if(cand!=null)setPlan("st",true,cand);}quizSummary();}window.scrollTo(0,0);};
+  const nx=$("#qnext"); if(nx)nx.onclick=()=>{if(QZ.i+1<QZ.items.length){QZ.i++;viewQuiz(key,true);}else{QZ.finished=true;if(/^rc-\d+$/.test(QZ.key))setPlan("rc",true,+QZ.key.slice(3));if(/^pps?-y2019$/.test(QZ.key)){const cand=[todayIdx(),activeDay()].find(i=>MAN.calendar[i]&&/2019/.test(MAN.calendar[i].side_task||""));if(cand!=null)setPlan("st",true,cand);}quizSummary();}window.scrollTo(0,0);};
   const ex=$("#qexpl"); if(ex)ex.onclick=()=>{const L=lm?lm.l:null;if(!L)return;openAsk({lesson:L,extra:`${q.q}\nOptions: ${q.o.map((o,j)=>LETTERS[j]+") "+o).join("; ")}\nCorrect: ${LETTERS[q.a]}. Learner chose: ${LETTERS[a]}.`,prefill:a===q.a?"Explain why the other options are wrong.":"Why is my answer wrong? Help me remember the right one."});};
 }
 function quizSummary(){
