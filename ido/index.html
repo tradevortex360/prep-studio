@@ -149,6 +149,54 @@ input[type=date]{font:inherit;padding:6px 10px;border:1px solid var(--line);bord
 .fc .back{font-size:18px;color:var(--good);font-weight:600;line-height:1.4}
 .rate{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 .rate button small{display:block;font-size:11px;color:var(--muted);font-weight:500}
+/* visuals */
+.viz{margin:18px 0;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:12px 14px;font-family:var(--font-ui);font-size:14.5px;line-height:1.45}
+.viz .vh{font-size:12px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.viz .vc{font-size:13px;color:var(--muted);margin-top:10px}
+.viz code{font-family:ui-monospace,Menlo,monospace;font-size:.92em}
+.tl{position:relative;padding-left:20px}
+.tl:before{content:"";position:absolute;left:6px;top:6px;bottom:6px;width:2px;background:var(--line)}
+.tl .ti{position:relative;display:grid;grid-template-columns:minmax(64px,auto) 1fr;gap:10px;padding:5px 0}
+.tl .ti:before{content:"";position:absolute;left:-19px;top:10px;width:10px;height:10px;border-radius:50%;background:var(--surface);border:2px solid var(--accent)}
+.tl .ti.hi:before{background:var(--gold);border-color:var(--gold)}
+.tl .y{font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;white-space:nowrap}
+.tl .ti.hi .y{color:var(--gold)}
+.lad{display:flex;gap:6px;align-items:stretch}
+.lad .st{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px}
+.lad .v{font-weight:700;font-size:14px;color:var(--ink);line-height:1.2}
+.lad .bw{height:110px;width:100%;display:flex;align-items:flex-end;justify-content:center}
+.lad .b{width:78%;max-width:56px;background:var(--accent-soft);border:1.5px solid var(--accent);border-radius:6px 6px 2px 2px}
+.lad .st:last-child .b{background:var(--gold-soft);border-color:var(--gold)}
+.lad .l{font-size:12.5px;font-weight:600;line-height:1.25}
+.lad .s{font-size:11.5px;color:var(--muted);line-height:1.2}
+.sc{display:flex;border-radius:8px;overflow:hidden;border:1px solid var(--line)}
+.sc .sg{overflow-wrap:anywhere;padding:8px 3px;text-align:center;font-weight:700;font-size:13px;min-width:0;border-right:1px solid var(--surface)}
+.sc .sg:last-child{border-right:0}
+.t-good{background:var(--good-soft);color:var(--good)}.t-gold{background:var(--gold-soft);color:var(--gold)}.t-bad{background:var(--bad-soft);color:var(--bad)}.t-accent{background:var(--accent-soft);color:var(--accent)}.t-muted{background:var(--bg);color:var(--muted)}
+.scl{display:flex;margin-top:6px}
+.scl span{min-width:0;text-align:center;font-size:12px;line-height:1.25;padding:0 2px}
+.fl{display:flex;flex-direction:column;align-items:stretch}
+.fl .fs{display:grid;grid-template-columns:26px 1fr;column-gap:10px;align-items:start;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--bg)}
+.fl .k{grid-row:span 2;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.fl .t{font-weight:700}.fl .n{font-size:13px;color:var(--muted)}
+.fl .fa{align-self:center;height:16px;width:2px;background:var(--line);position:relative;margin:2px 0}
+.fl .fa:after{content:"";position:absolute;left:-4px;bottom:-2px;border:5px solid transparent;border-top-color:var(--muted)}
+@media(min-width:720px){.fl{flex-direction:row;align-items:stretch}.fl .fs{flex:1;grid-template-columns:1fr}.fl .k{grid-row:auto;margin-bottom:4px}.fl .fa{height:2px;width:14px;margin:0 2px}.fl .fa:after{left:auto;right:-6px;bottom:-4px;border-top-color:transparent;border-left-color:var(--muted)}}
+.vs{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.vs .vr{display:grid;grid-template-columns:1fr 1fr}
+.vs .vr span{padding:7px 10px;border-top:1px solid var(--line);font-size:13.5px}
+.vs .vr span+span{border-left:1px solid var(--line)}
+.vs .vhd span{border-top:0;font-weight:700;background:var(--accent-soft);color:var(--accent)}
+.vs .vhd span+span{background:var(--gold-soft);color:var(--gold)}
+.cds{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.cds .cd{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--bg);display:flex;flex-direction:column;gap:2px}
+.cds .k{font-size:20px;font-weight:800;color:var(--accent);line-height:1.1;overflow-wrap:anywhere}
+.cds .t{font-weight:700;font-size:13.5px}.cds .n{font-size:12.5px;color:var(--muted)}
+.wbmap{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;max-width:420px;margin:0 auto}
+.wbmap .mt{border:1px solid var(--line);border-radius:6px;padding:6px 2px;font-size:11px;font-weight:600;line-height:1.15;cursor:pointer;min-height:40px;font-family:var(--font-ui)}
+.wbmap .mt.on{outline:2px solid var(--ink)}
+.rg-n{background:var(--good-soft);color:var(--good)}.rg-w{background:var(--gold-soft);color:var(--gold)}.rg-h{background:var(--accent-soft);color:var(--accent)}.rg-c{background:var(--bad-soft);color:var(--bad)}
+.viz .mi{margin-top:10px;font-size:13.5px;border-top:1px solid var(--line);padding-top:8px;min-height:40px}
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
 nav.tabs .in{max-width:760px;margin:0 auto;display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
 nav.tabs a{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px 9px;text-decoration:none;color:var(--muted);font-size:12px;font-weight:600}
@@ -525,7 +573,7 @@ function viewModule(id){
   app.innerHTML=`<div class="stack">
     <a href="#learn" class="small">‹ Syllabus</a>
     <div><div class="eyebrow">${m.marks} marks in the exam</div><h1>${esc(m.title)}</h1><p class="muted" style="margin:6px 0 0">${p.d} of ${p.t} lessons done${avail?` · ${qn} practice questions`:""}</p></div>
-    ${avail?`<div class="row"><a class="btn primary" href="#quiz-mod-${m.id}">Practise the whole module</a><a class="btn" href="#numbers-${m.id}">Numbers only</a></div>`:`<p class="notice">This module is being written. Its lessons will appear here as they're added.</p>`}
+    ${avail?`<div class="row"><a class="btn primary" href="#quiz-mod-${m.id}">Practise the whole module</a><a class="btn" href="#numbers-${m.id}">Visual revision</a></div>`:`<p class="notice">This module is being written. Its lessons will appear here as they're added.</p>`}
     <div class="list">${rows}</div>
     ${avail&&avail.sources?`<details class="card small"><summary><b>Sources used for this module</b></summary><ul>${avail.sources.map(s=>`<li><a href="${esc(s[1])}" target="_blank" rel="noopener">${esc(s[0])}</a></li>`).join("")}</ul></details>`:""}
   </div>`;
@@ -941,7 +989,13 @@ function viewMore(){
   const lk=$("#lockbtn2"); if(lk)lk.onclick=()=>ENV.lock();
 }
 
+function hydrateMaps(){
+  app.querySelectorAll(".wbmap").forEach(m=>{if(m.dataset.ready)return;m.dataset.ready="1";const info=m.parentElement.querySelector(".mi");
+    m.querySelectorAll(".mt").forEach(t=>t.onclick=()=>{m.querySelectorAll(".mt").forEach(x=>x.classList.remove("on"));t.classList.add("on");
+      info.innerHTML=`<b>${esc(t.dataset.n)}</b> · HQ ${esc(t.dataset.h)}<br>${esc(t.dataset.i)}`;});});
+}
 function hydrateChecks(){
+  hydrateMaps();
   app.querySelectorAll(".qc").forEach(box=>{
     if(box.dataset.ready)return;box.dataset.ready="1";
     const a=+box.dataset.a, e=box.dataset.e||""; const items=[...box.querySelectorAll("li")].map(li=>li.innerHTML);
@@ -976,9 +1030,10 @@ function viewNumbers(mid){
   const m=modById(mid); const d=MODS[mid]; if(!m||!d){location.hash="learn";return;}
   app.innerHTML=`<div class="stack">
     <a class="small" href="#module-${mid}">‹ ${esc(m.title)}</a>
-    <div><div class="eyebrow">Revision</div><h1>Numbers only</h1><p class="muted" style="margin:6px 0 0">Every date, section, limit and figure in this module on one screen. Cover the right column and test yourself.</p></div>
-    ${d.lessons.map(l=>`<h2>${esc(l.title)}</h2><div class="card" style="padding:4px 6px"><table class="facts">${l.facts.map(f=>`<tr><td>${esc(f[0])}</td><td>${esc(f[1])}</td></tr>`).join("")}</table></div>`).join("")}
+    <div><div class="eyebrow">Revision</div><h1>Visual revision</h1><p class="muted" style="margin:6px 0 0">Every timeline, ladder and figure in this module on one screen. Cover the right column and test yourself.</p></div>
+    ${d.lessons.map(l=>`<h2>${esc(l.title)}</h2>${l.sections.map(s=>(s.html.match(/<!--viz-->[\s\S]*?<!--\/viz-->/g)||[]).join("")).join("")}<div class="card" style="padding:4px 6px"><table class="facts">${l.facts.map(f=>`<tr><td>${esc(f[0])}</td><td>${esc(f[1])}</td></tr>`).join("")}</table></div>`).join("")}
   </div>`;
+  hydrateMaps();
 }
 
 /* ---------- boot ---------- */
