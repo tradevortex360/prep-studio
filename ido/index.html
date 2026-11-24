@@ -461,6 +461,7 @@ async function loadContent(force){
   }catch(e){PYQ=null;}
   try{IV=await get("interview.json");}catch(e){IV=null;}
   BANKN={};
+  if(MAN.hard){try{const arr=await get(MAN.hard);arr.forEach(q=>{QIDX[q.id]={q,lid:q.lid,mid:q.mid,hard:true};HARDN++;});}catch(e){console.warn("hard pool failed");}}
   await Promise.all((MAN.banks||[]).map(async f=>{try{const arr=await get(f);arr.forEach(q=>{QIDX[q.id]={q,lid:q.lid,mid:q.mid,bank:true};BANKN[q.mid]=(BANKN[q.mid]||0)+1;});}catch(e){console.warn("bank failed",f);}}));
 }
 let PYQ=null, BANKN={};
@@ -835,14 +836,20 @@ async function genQuestions(btn){
 
 /* ---------- mock ---------- */
 let MOCK=null, TICK=null;
-function mockPool(){return Object.keys(QIDX).filter(k=>QIDX[k].mid!=="gs"&&QIDX[k].q&&QIDX[k].q.o&&QIDX[k].q.o.length>=2);}
+let HARDN=0;
+function mockPool(){return Object.keys(QIDX).filter(k=>!QIDX[k].hard&&QIDX[k].mid!=="gs"&&QIDX[k].q&&QIDX[k].q.o&&QIDX[k].q.o.length>=2);}
 function startMock(ids,minutes,label){if(!ids||!ids.length){toastPep("No questions are available for this test yet.");return;}MOCK={ids,ans:{},conf:{},i:0,start:Date.now(),dur:Math.round(minutes*60)*1000,done:false,label:label||""};if(location.hash!=="#mock")location.hash="mock";else mockRun();}
-function buildMock(n,only){
+function buildMock(n,only,hard){
   const pool=mockPool();const seen=new Set(S.mseen||[]);const by={};pool.forEach(k=>{(by[QIDX[k].mid]=by[QIDX[k].mid]||[]).push(k);});
   const mods=MAN.modules.filter(m=>!only||m.id===only);const tot=mods.reduce((a,m)=>a+m.marks,0);
   let quota=mods.map((m,i)=>{const x=n*m.marks/tot;return {m,i,n:Math.floor(x),r:x-Math.floor(x)};});let diff=n-quota.reduce((a,x)=>a+x.n,0);[...quota].sort((a,b)=>b.r-a.r||a.i-b.i).slice(0,diff).forEach(x=>x.n++);
   const out=[];quota.forEach(({m,n:k})=>{const arr=by[m.id]||[];const fresh=shuffle(arr.filter(x=>!seen.has(x))),old=shuffle(arr.filter(x=>seen.has(x)));out.push(...fresh.concat(old).slice(0,k));});
   if(out.length<n){const used=new Set(out);out.push(...shuffle(pool.filter(k=>!used.has(k)&&mods.some(m=>m.id===QIDX[k].mid))).slice(0,n-out.length));}
+  // time-trap questions: about 12% of a full or half mock, swapped in at random places within each section
+  if(hard&&!only&&HARDN){const hp={};for(const k in QIDX)if(QIDX[k].hard)(hp[QIDX[k].mid]=hp[QIDX[k].mid]||[]).push(k);
+    const H=Math.round(n*0.12);let hq=mods.map((m,i)=>{const x=H*m.marks/tot;return {m,i,n:Math.floor(x),r:x-Math.floor(x)};});let hd=H-hq.reduce((a,x)=>a+x.n,0);[...hq].sort((a,b)=>b.r-a.r||a.i-b.i).slice(0,hd).forEach(x=>x.n++);
+    hq.forEach(({m,n:k})=>{const arr=hp[m.id]||[];const pick=shuffle(arr.filter(x=>!seen.has(x))).concat(shuffle(arr.filter(x=>seen.has(x)))).slice(0,k);
+      const slots=shuffle(out.map((x,i)=>i).filter(i=>QIDX[out[i]].mid===m.id)).slice(0,pick.length);slots.forEach((sl,j)=>{out[sl]=pick[j];});});}
   // keep exam order: sections as in the paper
   return out;
 }
@@ -860,17 +867,22 @@ function viewMock(soft){
       <button class="li" data-mk="50"><span class="grow"><span class="t">Half mock · 50 questions · 45 min</span><br><span class="small muted">Same split, half the length</span></span></button>
       <button class="li" data-mk="25"><span class="grow"><span class="t">Quick mock · 25 questions · 22½ min</span><br><span class="small muted">For a busy day</span></span></button>
     </div>
+    ${HARDN?`<label class="card row" style="gap:10px;align-items:flex-start;cursor:pointer"><input type="checkbox" id="hardon" ${hardDefault()?"checked":""} style="margin-top:4px"><span><b>Include time-trap questions</b><br><span class="small muted">About 12 in 100 are deliberately slow or tricky, placed at random like the real paper. Spot them in about 10 seconds and skip, or solve them last. They're revealed only after you submit. ${S.mocks.some(x=>x.label==="Full mock")?"":"Recommended from your second full mock: take the first one without them to get a baseline."}</span></span></label>`:""}
     <h2>Section test</h2><p class="small muted" style="margin:0">20 questions from one section · 18 min</p>
     <div class="row" style="flex-wrap:wrap">${MAN.modules.map(m=>`<button class="btn sm" data-sec="${m.id}">${esc(m.short)}</button>`).join("")}</div>
     <p class="small muted" style="margin:0">During a mock, tag each answer <b>Sure</b>, <b>50-50</b> or <b>Guess</b>. The result shows whether your guesses are earning or losing marks.</p>
     ${hist.length?`<h2>Recent mocks</h2><div class="list">${hist.map(h=>`<div class="li"><span class="grow"><span class="t">${h.score} / ${h.total}${h.label?` · ${esc(h.label)}`:""}</span><br><span class="small muted">${new Date(h.ts).toLocaleString("en-IN",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})} · ${h.c} right · ${h.w} wrong · ${h.u} skipped</span></span><span class="chip ${h.pct>=60?"good":h.pct>=40?"gold":"bad"}">${h.pct}%</span></div>`).join("")}</div>`:""}
   </div>`;
-  app.querySelectorAll("[data-mk]").forEach(b=>b.onclick=()=>{const n=+b.dataset.mk;startMock(buildMock(n),n*0.9,n===100?"Full mock":n===50?"Half mock":"Quick mock");});
+  const ho=$("#hardon");if(ho)ho.onchange=()=>{S.hardOn=ho.checked?1:0;persist("s");};
+  app.querySelectorAll("[data-mk]").forEach(b=>b.onclick=()=>{const n=+b.dataset.mk;const h=ho?ho.checked:false;startMock(buildMock(n,null,h),n*0.9,n===100?"Full mock":n===50?"Half mock":"Quick mock");});
   app.querySelectorAll("[data-sec]").forEach(b=>b.onclick=()=>{const m=b.dataset.sec;startMock(shuffle(buildMock(20,m)),18,modById(m).short+" section test");});
 }
+function hardDefault(){if(S.hardOn!=null)return !!S.hardOn;return S.mocks.some(x=>x.label==="Full mock");}
 function mockLeft(){return Math.max(0,MOCK.start+MOCK.dur-Date.now());}
 function fmtMs(ms){const s=Math.ceil(ms/1000);return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");}
+function mockTick(){if(!MOCK)return;MOCK.tq=MOCK.tq||{};const now=Date.now();if(MOCK.cur!=null&&MOCK.since){MOCK.tq[MOCK.cur]=(MOCK.tq[MOCK.cur]||0)+Math.max(0,Math.min(now,MOCK.start+MOCK.dur)-MOCK.since);}MOCK.cur=MOCK.done?null:MOCK.i;MOCK.since=now;}
 function mockRun(){
+  mockTick();
   try{localStorage.setItem(LS+"mock",JSON.stringify(MOCK));}catch(e){}
   clearInterval(TICK);
   const id=MOCK.ids[MOCK.i], q=QIDX[id].q, a=MOCK.ans[MOCK.i];
@@ -902,6 +914,7 @@ function confirmSubmit(){
 }
 function submitMock(){
   clearInterval(TICK); if(!MOCK||MOCK.done)return;
+  mockTick();MOCK.cur=null;
   let c=0,w=0,u=0; const byMod={};
   MOCK.ids.forEach((id,i)=>{const r=QIDX[id];const a=MOCK.ans[i];const bm=byMod[r.mid]||(byMod[r.mid]={c:0,w:0,u:0,t:0});bm.t++;
     if(a==null){u++;bm.u++;}else if(a===r.q.a){c++;bm.c++;recordAnswer(id,true);}else{w++;bm.w++;recordAnswer(id,false);}});
@@ -909,13 +922,15 @@ function submitMock(){
   const cf={s:{c:0,w:0},h:{c:0,w:0},g:{c:0,w:0},n:{c:0,w:0}};MOCK.ids.forEach((id,i)=>{const a=MOCK.ans[i];if(a==null)return;const k=(MOCK.conf||{})[i]||"n";cf[k][a===QIDX[id].q.a?"c":"w"]++;});
   MOCK.done=true; try{localStorage.removeItem(LS+"mock");}catch(e){} MOCK.res={c,w,u,score,byMod,cf,total:MOCK.ids.length,taken:Date.now()-MOCK.start};
   S.mseen=[...new Set([...(S.mseen||[]),...MOCK.ids])].slice(-3000);
-  S.mocks.push({ts:Date.now(),label:MOCK.label||"",score,total:MOCK.ids.length,c,w,u,cf,pct:Math.round(100*Math.max(0,score)/MOCK.ids.length)});syncPlanDone();
+  const secT={};let hardT=0,hardN=0;MOCK.ids.forEach((id,i)=>{const t=(MOCK.tq||{})[i]||0;const r=QIDX[id];secT[r.mid]=(secT[r.mid]||0)+t;if(r.hard){hardT+=t;hardN++;}});
+  MOCK.res.secT=secT;MOCK.res.hardT=hardT;MOCK.res.hardN=hardN;
+  S.mocks.push({ts:Date.now(),label:MOCK.label||"",score,total:MOCK.ids.length,c,w,u,cf,secT,hardT,hardN,pct:Math.round(100*Math.max(0,score)/MOCK.ids.length)});syncPlanDone();
   if(S.mocks.length>60)S.mocks=S.mocks.slice(-60);
   persist("s");
   if(location.hash!=="#mock-result")location.hash="mock-result";else mockResult();
 }
 let DR=null,DTICK=null;
-function drillPool(kind){const ar=["m7l1","m7l2","m7l3","m7l4","m7l5"];return Object.keys(QIDX).filter(k=>{const r=QIDX[k];if(r.mid!=="m7")return false;if(r.pyq)return kind==="mix";const isA=ar.includes(r.lid);return kind==="mix"||(kind==="arith"?isA:!isA);});}
+function drillPool(kind){const ar=["m7l1","m7l2","m7l3","m7l4","m7l5"];return Object.keys(QIDX).filter(k=>{const r=QIDX[k];if(r.mid!=="m7"||r.hard)return false;if(r.pyq)return kind==="mix";const isA=ar.includes(r.lid);return kind==="mix"||(kind==="arith"?isA:!isA);});}
 function viewDrill(){
   clearInterval(DTICK);
   if(DR&&!DR.done)return drillRun();
@@ -1024,16 +1039,47 @@ function mockResult(){
   if(!MOCK||!MOCK.res){location.hash="mock";return;}
   const R=MOCK.res;
   const rows=Object.entries(R.byMod).map(([mid,b])=>`<tr><td>${esc(SECNAME(mid))}</td><td>${b.c}</td><td>${b.w}</td><td>${b.u}</td><td>${Math.round((b.c-MAN.exam.negative*b.w)*100)/100} / ${b.t}</td></tr>`).join("");
-  const review=MOCK.ids.map((id,i)=>{const q=QIDX[id].q;const a=MOCK.ans[i];if(a===q.a)return"";return `<div class="card stack" style="gap:6px"><b>${i+1}. ${esc(q.q)}</b><div class="small">${a==null?'<span class="chip mute">Skipped</span>':`Your answer: <span class="chip bad">${LETTERS[a]}) ${esc(q.o[a])}</span>`}</div><div class="small">Correct: <span class="chip good">${LETTERS[q.a]}) ${esc(q.o[q.a])}</span></div><div class="expl small">${esc(q.e)}</div></div>`;}).join("");
+  const review=MOCK.ids.map((id,i)=>{const q=QIDX[id].q;const a=MOCK.ans[i];const hd=QIDX[id].hard,tt=(MOCK.tq||{})[i]||0;if(a===q.a&&!hd)return"";return `<div class="card stack" style="gap:6px" id="mrq-${i}"><b>${i+1}. ${esc(q.q)}</b><div class="small muted">${hd?'<span class="chip gold">Time trap</span> ':""}${tt?`Time spent: ${mins(tt)}`:"Not opened"}${a===q.a?' · <span class="chip good">Right</span>':""}</div><div class="small">${a==null?'<span class="chip mute">Skipped</span>':`Your answer: <span class="chip bad">${LETTERS[a]}) ${esc(q.o[a])}</span>`}</div><div class="small">Correct: <span class="chip good">${LETTERS[q.a]}) ${esc(q.o[q.a])}</span></div><div class="expl small">${esc(q.e)}</div></div>`;}).join("");
   app.innerHTML=`<div class="stack">
     <a class="small" href="#practice">‹ Practice</a>
     <div class="card"><div class="eyebrow">Mock result</div><h1 style="margin-top:4px">${R.score} / ${R.total}</h1><p class="muted" style="margin:6px 0 0">${R.c} right · ${R.w} wrong${R.w?` (−${Math.round(R.w*MAN.exam.negative*100)/100})`:""} · ${R.u} skipped · ${fmtMs(R.taken)} taken</p></div>
     <div class="card tablewrap"><table class="facts" style="min-width:340px"><tr><td><b>Section</b></td><td><b>Right</b></td><td><b>Wrong</b></td><td><b>Skipped</b></td><td><b>Score</b></td></tr>${rows}</table></div>
+    ${timeReport(R)}
     ${guessCoach(R.cf)}
     <div class="row"><a class="btn primary" href="#weak">Practise weak areas</a><button class="btn" id="newmock">New mock</button></div>
-    ${review?`<h2>Review: wrong and skipped</h2>${review}`:"<p>Perfect score. Nothing to review.</p>"}
+    ${review?`<h2>Review: wrong, skipped and time traps</h2>${review}`:"<p>Perfect score. Nothing to review.</p>"}
   </div>`;
+  app.querySelectorAll("[data-go]").forEach(a=>{a.style.cursor="pointer";a.onclick=()=>{const el=document.getElementById("mrq-"+a.dataset.go);if(el)el.scrollIntoView({behavior:"smooth",block:"start"});else toastPep("You got that one right: it isn't in the review list.");};});
   $("#newmock").onclick=()=>{MOCK=null;location.hash="mock";};
+}
+
+function mins(ms){const m=ms/60000;return m<1?Math.round(ms/1000)+" s":(Math.round(m*10)/10)+" min";}
+function timeReport(R){
+  if(!R.secT||!MOCK.tq)return "";
+  const per=MAN.exam.minutes*60000/MAN.exam.questions; // fair time per question (54 s)
+  const tot=Object.values(R.secT).reduce((a,b)=>a+b,0);
+  const rows=MAN.modules.filter(m=>R.byMod[m.id]).map(m=>{const b=R.byMod[m.id];const t=R.secT[m.id]||0,fair=b.t*per;const d=t-fair;const flag=d>fair*0.25&&d>60000?"bad":d<-fair*0.4?"good":"mute";
+    return `<tr><td>${esc(m.short)}</td><td><b>${mins(t)}</b></td><td>${mins(fair)}</td><td><span class="chip ${flag}">${d>=0?"+":"−"}${mins(Math.abs(d))}</span></td></tr>`;}).join("");
+  const qs=MOCK.ids.map((id,i)=>({i,id,r:QIDX[id],t:(MOCK.tq||{})[i]||0,a:MOCK.ans[i]}));
+  const res=x=>x.a==null?'<span class="chip mute">skipped</span>':x.a===x.r.q.a?'<span class="chip good">right</span>':'<span class="chip bad">wrong</span>';
+  const slow=[...qs].sort((a,b)=>b.t-a.t).slice(0,5).filter(x=>x.t>0);
+  const unseen=qs.filter(x=>!x.t&&x.a==null&&!x.r.hard);
+  const hard=qs.filter(x=>x.r.hard);
+  let hardHtml="";
+  if(hard.length){const hT=hard.reduce((a,x)=>a+x.t,0);const quick=hard.filter(x=>x.a==null&&x.t<=20000).length;const sunk=hard.filter(x=>x.t>3*per);const hc=hard.filter(x=>x.a===x.r.q.a).length,hw=hard.filter(x=>x.a!=null&&x.a!==x.r.q.a).length;
+    hardHtml=`<div class="card stack" style="gap:6px"><div class="eyebrow">Time traps (${hard.length} in this mock)</div>
+      <p style="margin:0">You spent <b>${mins(hT)}</b> on them (fair share about ${mins(hard.length*per)}). Result: ${hc} right, ${hw} wrong, ${hard.length-hc-hw} skipped, net ${Math.round((hc-MAN.exam.negative*hw)*100)/100}.</p>
+      <p class="small muted" style="margin:0">${quick} skipped within 20 seconds (good decisions). ${sunk.length?`<b>${sunk.length}</b> took over ${mins(3*per)} each: that time could have answered about ${Math.round(sunk.reduce((a,x)=>a+x.t,0)/per)} normal questions.`:`None took more than ${mins(3*per)}. Well handled.`}</p>
+      <div class="small">${hard.map(x=>`<a data-go="${x.i}" class="chip ${x.a===x.r.q.a?"good":x.a==null?"mute":"bad"}" style="margin:2px">Q${x.i+1} · ${mins(x.t)}</a>`).join("")}</div></div>`;}
+  const prev=S.mocks.filter(x=>x.secT&&x.label===MOCK.label).slice(-5);
+  const trend=prev.length>1?`<div class="card tablewrap"><div class="eyebrow" style="margin-bottom:6px">Your trend (last ${prev.length} ${esc(MOCK.label.toLowerCase())}s, minutes per section)</div><table class="facts" style="min-width:320px"><tr><td><b>Section</b></td>${prev.map(x=>`<td><b>${new Date(x.ts).toLocaleDateString("en-IN",{day:"numeric",month:"short"})}</b></td>`).join("")}</tr>${MAN.modules.map(m=>`<tr><td>${esc(m.short)}</td>${prev.map(x=>`<td>${x.secT[m.id]!=null?Math.round(x.secT[m.id]/6000)/10:"–"}</td>`).join("")}</tr>`).join("")}</table></div>`:"";
+  return `<h2>Where your time went</h2>
+    <div class="card tablewrap"><table class="facts"><tr><td><b>Section</b></td><td><b>Spent</b></td><td><b>Fair</b></td><td><b>+/−</b></td></tr>${rows}</table>
+    <p class="small muted" style="margin:8px 0 0">Fair = 54 seconds a question, the exam's average pace. Total time on questions: ${mins(tot)}.</p></div>
+    ${unseen.length?`<p class="notice">Time ran out with <b>${unseen.length}</b> question${unseen.length>1?"s":""} never opened. Each could have been an easy mark.</p>`:""}
+    ${hardHtml}
+    ${slow.length?`<div class="card stack" style="gap:6px"><div class="eyebrow">Your 5 slowest questions</div>${slow.map(x=>`<a class="row" data-go="${x.i}" style="justify-content:space-between"><span class="small">Q${x.i+1} · ${esc(SECNAME(x.r.mid))}${x.r.hard?' · <span class="chip gold">time trap</span>':""}</span><span class="small"><b>${mins(x.t)}</b> ${res(x)}</span></a>`).join("")}</div>`:""}
+    ${trend}`;
 }
 
 /* ---------- weak, notes, plan ---------- */
