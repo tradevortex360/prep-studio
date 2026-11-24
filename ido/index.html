@@ -155,6 +155,11 @@ input[type=date]{font:inherit;padding:6px 10px;border:1px solid var(--line);bord
 .fc{border:1px solid var(--line);background:var(--surface);border-radius:16px;min-height:220px;padding:22px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;cursor:pointer;gap:10px}
 .fc .front{font-size:19px;font-weight:700;line-height:1.35}
 .fc .back{font-size:18px;color:var(--good);font-weight:600;line-height:1.4}
+.fc .said{color:var(--muted);font-style:italic;max-width:95%}
+.fc .verdict{font-size:14px;font-weight:600;padding:6px 10px;border-radius:10px}
+.fc .verdict.ok{color:var(--good);background:var(--good-soft)}
+.fc .verdict.part{color:#b7791f;background:rgba(227,173,85,.15)}
+.fc .verdict.no{color:var(--bad);background:var(--bad-soft)}
 .rate{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 .rate button small{display:block;font-size:11px;color:var(--muted);font-weight:500}
 /* visuals */
@@ -654,7 +659,7 @@ function render(soft){
   if(v==="paper")return viewPaper(a);
   viewHome(); bindHome();
 }
-window.addEventListener("hashchange",()=>{try{stopSay();}catch(e){}render();window.scrollTo(0,0);});
+window.addEventListener("hashchange",()=>{try{stopSay();}catch(e){}try{if(CQ&&CQ.mic){CQ.mic.stop();CQ.mic=null;}}catch(e){}render();window.scrollTo(0,0);});
 
 /* ---------- views ---------- */
 function planEntryLabel(e){
@@ -788,6 +793,52 @@ async function say(text){const my=++SPK;stopSay(true);const t=speechText(text);i
   if(TTS){try{await TTS.speak([{text:t.slice(0,1800),language:"en"}]);return;}catch(e){}}
   if(window.speechSynthesis){const u=new SpeechSynthesisUtterance(t);const v=speechSynthesis.getVoices();u.voice=v.find(x=>/en-IN/i.test(x.lang))||v.find(x=>/^en/i.test(x.lang))||null;u.rate=0.95;speechSynthesis.speak(u);}}
 function stopSay(keep){if(!keep)SPK++;try{if(TTS)TTS.stop();}catch(e){}try{if(window.speechSynthesis)speechSynthesis.cancel();}catch(e){}}
+/* listening: claude.ai dictation where available, otherwise the browser's own speech recognition */
+let DICT=null,DICTP=null;
+function dictReady(){if(!DICTP&&window.claude&&claude.use)DICTP=claude.use("dictation").then(d=>{DICT=d;return d;}).catch(()=>null);return DICTP||Promise.resolve(null);}
+function SRclass(){return window.SpeechRecognition||window.webkitSpeechRecognition||null;}
+function canListen(){return !!(DICT||SRclass());}
+/* start listening; must be called straight from a tap. cb(text,final) */
+function listenOnce(cb,onEnd){
+  let txt="",fin="",ended=false;const end=r=>{if(ended)return;ended=true;onEnd&&onEnd((fin+" "+txt).trim(),r);};
+  if(DICT){const d=DICT;let offs=[];
+    try{offs.push(d.onPartial(({text})=>{txt=text||"";cb((fin+" "+txt).trim(),false);}));
+      offs.push(d.onFinal(({text})=>{fin=(fin+" "+(text||"")).trim();txt="";cb(fin,true);}));
+      offs.push(d.onState(({state,reason})=>{if(state==="idle"){offs.forEach(f=>{try{typeof f==="function"&&f();}catch(e){}});end(reason||"stopped");}}));}catch(e){}
+    d.start().catch(e=>end((e&&(e.code||e.message))||"error"));
+    return {stop:()=>{d.stop().catch(()=>{});}};}
+  const C=SRclass();if(!C){end("unsupported");return {stop(){}};}
+  const r=new C();r.lang="en-IN";r.interimResults=true;r.continuous=false;r.maxAlternatives=1;
+  r.onresult=e=>{let it="";for(let i=e.resultIndex;i<e.results.length;i++){const x=e.results[i];if(x.isFinal)fin=(fin+" "+x[0].transcript).trim();else it+=x[0].transcript;}txt=it;cb((fin+" "+txt).trim(),!it);};
+  r.onerror=e=>end(e.error||"error");r.onend=()=>end("stopped");
+  try{r.start();}catch(e){end("error");}
+  return {stop:()=>{try{r.stop();}catch(e){}}};
+}
+const NUMW={zero:0,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,seventeen:17,eighteen:18,nineteen:19,twenty:20,thirty:30,forty:40,fifty:50,sixty:60,seventy:70,eighty:80,ninety:90,hundred:100};
+const STOPW=new Set("a an the of in on at to for and or is are was were be by with from as it its this that which who into than then also per about rs rupee inr".split(" "));
+const ORDW={first:1,second:2,third:3,fourth:4,fifth:5,sixth:6,seventh:7,eighth:8,ninth:9,tenth:10,eleventh:11,twelfth:12,thirteenth:13,fourteenth:14,fifteenth:15,sixteenth:16,seventeenth:17,eighteenth:18,nineteenth:19,twentieth:20,thirtieth:30};
+/* the words said, plus joined forms: "eighteen ninety seven" also gives 1897, "son nagar" also gives sonnagar */
+function saidWords(t){const w=String(t||"").toLowerCase().replace(/(\d+)(st|nd|rd|th)\b/g,"$1").split(/\s+/).map(x=>ORDW[x.replace(/[^a-z]/g,"")]!==undefined?String(ORDW[x.replace(/[^a-z]/g,"")]):x).join(" ");
+  const base=normWords(w);const n=base.map(x=>/^\d+$/.test(x)?+x:null);const nums=[];
+  for(let i=0;i<base.length;i++){if(n[i]===null)continue;let v=n[i];let j=i+1;
+    if(j<base.length&&n[j]!==null&&v>=20&&v<100&&v%10===0&&n[j]<10){v+=n[j];j++;}
+    if(base[j]==="thousand"){v*=1000;j++;let r=0;if(base[j]==="and")j++;if(j<base.length&&n[j]!==null){r=n[j];j++;if(j<base.length&&n[j]!==null&&r>=20&&r%10===0&&n[j]<10){r+=n[j];j++;}}nums.push(String(v+r));}
+    else if(j<base.length&&n[j]!==null&&v>=10&&v<100){let r=n[j];let k=j+1;if(k<base.length&&n[k]!==null&&r>=20&&r%10===0&&n[k]<10)r+=n[k];if(r<100)nums.push(String(v*100+r));}
+    nums.push(String(v));}
+  const joins=[];for(let i=0;i+1<base.length;i++)joins.push(base[i]+base[i+1]);
+  return base.concat(nums,joins);}
+function normWords(t){return String(t||"").toLowerCase().replace(/(\d),(?=\d)/g,"$1").replace(/%/g," percent ").replace(/&/g," and ").replace(/[^a-z0-9.\s]/g," ").replace(/\.(?!\d)/g," ").split(/\s+/).filter(Boolean).map(w=>NUMW[w]!==undefined?String(NUMW[w]):w.replace(/(ies)$/,"y").replace(/(?<=[a-z]{3})s$/,""));}
+function lev(a,b){if(a===b)return 0;const m=a.length,n=b.length;if(!m||!n)return m+n;let p=[...Array(n+1).keys()];for(let i=1;i<=m;i++){const c=[i];for(let j=1;j<=n;j++)c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1));p=c;}return p[n];}
+/* how much of the answer's key words were said: numbers must match exactly, words may be slightly off */
+function matchScore(said,answer){
+  const key=[...new Set(normWords(answer.split(/[(;]/)[0]).filter(w=>!STOPW.has(w)))];
+  const sw=saidWords(said);if(!key.length||!sw.length)return {score:0,miss:key};
+  const miss=[];let hit=0;
+  key.forEach(k=>{const ok=/\d/.test(k)?sw.includes(k):sw.some(w=>w===k||(k.length>4&&w.length>3&&lev(w,k)<=Math.floor(k.length/4))||(k.length>5&&w.length>4&&(k.startsWith(w)||w.startsWith(k))));ok?hit++:miss.push(k);});
+  const nums=key.filter(k=>/\d/.test(k));const numOk=nums.every(k=>sw.includes(k));
+  let score=hit/key.length;if(nums.length&&!numOk)score=Math.min(score,0.45);
+  return {score,miss};
+}
 async function setupListen(l){
   const b=$("#listen"); if(!b)return;
   if(!TTS&&window.claude&&claude.use){try{TTS=await claude.use("tts");}catch(e){TTS=null;}}
@@ -1526,16 +1577,29 @@ function viewCards(){
   const nxt={again:"today",hard:lab(Math.max(1,Math.round(i*1.2))),good:lab(i<1?1:Math.round(i*2.3)),easy:lab(i<1?4:Math.round(i*3.2))};
   app.innerHTML=`<div class="stack">
     <div class="row" style="justify-content:space-between"><a class="small" href="#practice">‹ Practice</a><span class="small muted">${CQ.q.length} left · ${st?"review":"new"}</span></div>
-    <div class="row" style="justify-content:space-between;align-items:center"><button class="btn sm" id="spk" aria-label="Read aloud">🔊 Read aloud</button><label class="small row" style="gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="autospk" ${S.cardSpeak?"checked":""}> Auto-read every card</label></div>
-    <div class="fc" id="fc"><div class="small muted">${esc(r?r.l.title:"")}</div><div class="front">${esc(c.f)}</div>${CQ.show?`<div class="back">${esc(c.b)}</div>`:`<div class="small muted">Say the answer, then tap to check</div>`}</div>
-    ${CQ.show?`<div class="rate"><button class="btn" data-r="again">Again<small>${nxt.again}</small></button><button class="btn" data-r="hard">Hard<small>${nxt.hard}</small></button><button class="btn" data-r="good">Good<small>${nxt.good}</small></button><button class="btn primary" data-r="easy">Easy<small>${nxt.easy}</small></button></div>`:`<button class="btn primary" id="reveal">Show answer</button>`}
+    <div class="row" style="justify-content:space-between;align-items:center"><span class="row" style="gap:6px"><button class="btn sm" id="spk" aria-label="Read aloud">🔊 Read aloud</button><button class="btn sm" id="mic" aria-label="Say your answer" ${canListen()?"":"hidden"}>🎤 Say answer</button></span><label class="small row" style="gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="autospk" ${S.cardSpeak?"checked":""}> Auto-read every card</label></div>
+    <div class="fc" id="fc"><div class="small muted">${esc(r?r.l.title:"")}</div><div class="front">${esc(c.f)}</div>${CQ.show?`<div class="back">${esc(c.b)}</div>`:`<div class="small muted">Say the answer, then tap to check</div>`}<div class="said small" id="said" ${CQ.said?"":"hidden"}>${CQ.said?`You said: “${esc(CQ.said)}”`:""}</div>${CQ.show&&CQ.verdict?`<div class="verdict ${CQ.verdict.cls}">${CQ.verdict.msg}</div>`:""}</div>
+    ${CQ.show?`<div class="rate">${["again","hard","good","easy"].map(k=>`<button class="btn ${(CQ.verdict?CQ.verdict.r===k:k==="easy")?"primary":""}" data-r="${k}">${k[0].toUpperCase()+k.slice(1)}<small>${nxt[k]}</small></button>`).join("")}</div>`:`<button class="btn primary" id="reveal">Show answer</button>`}
   </div>`;
-  const rv=()=>{CQ.show=true;viewCards();};
+  const rv=()=>{if(CQ.mic){CQ.mic.stop();CQ.mic=null;}CQ.show=true;viewCards();};
+  const mic=$("#mic");
+  if(!canListen())dictReady().then(d=>{if(d&&document.body.contains(mic))mic.hidden=false;});
+  if(mic)mic.onclick=()=>{
+    if(CQ.mic){CQ.mic.stop();return;}
+    stopSay();const said=$("#said");said.hidden=false;said.textContent="Listening… say your answer";mic.textContent="⏹ Stop";mic.classList.add("primary");
+    const cur=c;
+    CQ.mic=listenOnce(t=>{if(CQ.q[0]===cur&&document.body.contains(said))said.textContent="You said: “"+t+"”";},(t,why)=>{
+      CQ.mic=null;if(CQ.q[0]!==cur)return;
+      if(!t){if(document.body.contains(said)){said.textContent=why==="not_granted"||why==="not-allowed"?"Microphone permission was refused. You can still tap to check.":"Didn't catch that. Tap 🎤 and try again.";mic.textContent="🎤 Say answer";mic.classList.remove("primary");}return;}
+      CQ.said=t;const m=matchScore(t,cur.b);
+      CQ.verdict=m.score>=0.75?{r:"good",cls:"ok",msg:"✓ Looks right. Suggested: Good (tap Easy if it was instant)"}:m.score>=0.4?{r:"hard",cls:"part",msg:"◐ Partly right. Suggested: Hard"+(m.miss.length?" · missed: "+esc(m.miss.slice(0,4).join(", ")):"")}:{r:"again",cls:"no",msg:"✗ Doesn't match. Suggested: Again"};
+      CQ.show=true;viewCards();if(S.cardSpeak)say(cur.b);});
+  };
   $("#fc").onclick=()=>{if(!CQ.show)rv();}; const b=$("#reveal"); if(b)b.onclick=rv;
   $("#spk").onclick=()=>say(CQ.show?c.f+". "+c.b:c.f);
   $("#autospk").onchange=e=>{S.cardSpeak=e.target.checked?1:0;persist("s");if(S.cardSpeak)say(CQ.show?c.b:c.f);else stopSay();};
   if(S.cardSpeak)say(CQ.show?c.b:c.f);
-  app.querySelectorAll("[data-r]").forEach(x=>x.onclick=()=>{const r2=x.dataset.r;rateCard(c,r2);CQ.q.shift();if(r2==="again")CQ.q.push(c);CQ.done++;CQ.show=false;viewCards();});
+  app.querySelectorAll("[data-r]").forEach(x=>x.onclick=()=>{const r2=x.dataset.r;rateCard(c,r2);CQ.q.shift();if(r2==="again")CQ.q.push(c);CQ.done++;CQ.show=false;CQ.said="";CQ.verdict=null;viewCards();});
 }
 function viewNumbers(mid){
   const m=modById(mid); const d=MODS[mid]; if(!m||!d){location.hash="learn";return;}
