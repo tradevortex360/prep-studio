@@ -854,6 +854,21 @@ function saidWords(t){const w=String(t||"").toLowerCase().replace(/(\d+)(st|nd|r
 function normWords(t){return String(t||"").toLowerCase().replace(/(\d+)(st|nd|rd|th)\b/g,"$1").replace(/\b(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|thirtieth|fortieth|fiftieth|hundredth)\b/g,w=>String(ORDW[w])).replace(/(\d),(?=\d)/g,"$1").replace(/%/g," percent ").replace(/&/g," and ").replace(/[^a-z0-9.\s]/g," ").replace(/\.(?!\d)/g," ").split(/\s+/).filter(Boolean).map(w=>UNITW[w]||w).map(w=>NUMW[w]!==undefined?String(NUMW[w]):w.replace(/(ies)$/,"y").replace(/(?<=[a-z]{3})s$/,""));}
 function lev(a,b){if(a===b)return 0;const m=a.length,n=b.length;if(!m||!n)return m+n;let p=[...Array(n+1).keys()];for(let i=1;i<=m;i++){const c=[i];for(let j=1;j<=n;j++)c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1));p=c;}return p[n];}
 /* how much of the answer's key words were said: numbers must match exactly, words may be slightly off */
+/* numeric values in text, with lakh/crore/thousand and spoken "point": "1.98 lakh" → 198000, "21.5 lakh crore" → 2.15e13 */
+const MULW={hundred:100,thousand:1e3,lakh:1e5,lakhs:1e5,lac:1e5,lacs:1e5,million:1e6,crore:1e7,crores:1e7,billion:1e9};
+function numVals(t){const tk=String(t||"").toLowerCase().replace(/(\d),(?=\d)/g,"$1").replace(/[^a-z0-9.\s]/g," ").replace(/\.(?!\d)/g," ").split(/\s+/).filter(Boolean);
+  const out=[];let total=0,cur=null,lastM=0;const flush=()=>{if(cur!==null||total)out.push(total+(cur||0));total=0;cur=null;lastM=0;};
+  for(let i=0;i<tk.length;i++){const w=tk[i];
+    if(/^\d+(\.\d+)?$/.test(w)||NUMW[w]!==undefined){let v=/^\d/.test(w)?parseFloat(w):NUMW[w];
+      if(tk[i+1]==="point"){let d="";let j=i+2;while(j<tk.length&&(NUMW[tk[j]]!==undefined&&NUMW[tk[j]]<10||/^\d$/.test(tk[j]))){d+=/^\d$/.test(tk[j])?tk[j]:NUMW[tk[j]];j++;}if(d){v=parseFloat(v+"."+d);i=j-1;}}
+      if(lastM){total+=cur||0;cur=v;lastM=0;}else cur=(cur||0)+v;continue;}
+    if(MULW[w]){const m=MULW[w];if(lastM&&m>lastM)cur=(cur||1)*m;else{if(w==="hundred"){cur=(cur||1)*100;continue;}cur=(cur||1)*m;}lastM=m;continue;}
+    if(w==="and"&&cur!==null)continue;
+    flush();}
+  flush();return out;}
+function approxOk(partText,said){if(!/~|about|≈|approx|roughly|₹|lakh|crore|\bgw\b|\bmw\b|\bkm\b/i.test(partText))return false;
+  const kv=numVals(partText).filter(v=>v>=1000&&!(v>=1500&&v<=2100&&Number.isInteger(v)));if(!kv.length)return false;
+  const sv=numVals(said);return kv.some(k=>sv.some(v=>Math.abs(v-k)/k<=0.02));}
 /* checks each comma part of the answer: which parts were said, which were not, and whether a wrong number was said */
 function wordHit(k,sw){return /\d/.test(k)?sw.includes(k):sw.some(w=>w===k||(k.length>4&&w.length>3&&lev(w,k)<=Math.floor(k.length/4))||(k.length>5&&w.length>4&&(k.startsWith(w)||w.startsWith(k))));}
 function matchScore(said,answer){
@@ -862,16 +877,18 @@ function matchScore(said,answer){
   const parts=main.split(/,|\band\b|·|→|\s\/\s/i).map(t=>t.trim()).filter(Boolean).map(t=>{let key=[...new Set(normWords(t).filter(w=>!STOPW.has(w)))];if(!key.length)key=[...new Set(normWords(t))];return {text:t,key};}).filter(p=>p.key.length);
   if(!parts.length||!sw.length)return {score:0,parts:parts.map(p=>({text:p.text,ok:false})),wrongNum:[]};
   let hitW=0,allW=0;
-  parts.forEach(p=>{const h=p.key.filter(k=>wordHit(k,sw)).length;hitW+=h;allW+=p.key.length;const num=p.key.some(k=>/\d/.test(k));p.ok=num?h===p.key.length:h/p.key.length>=0.6;});
-  const keyNums=new Set(parts.flatMap(p=>p.key.filter(k=>/^\d+$/.test(k))));
-  const saidNums=[...new Set(sw.filter(w=>/^\d+$/.test(w)&&!SWJ.has(w)))].sort((a,b)=>b.length-a.length);
+  parts.forEach(p=>{let h=p.key.filter(k=>wordHit(k,sw)).length;const num=p.key.some(k=>/\d/.test(k));
+    if(num&&h<p.key.length&&approxOk(p.text,said)){p.approx=true;h=p.key.filter(k=>/\d/.test(k)||wordHit(k,sw)).length;}
+    hitW+=h;allW+=p.key.length;if(p.approx)h=p.key.length;p.ok=num?h===p.key.length:h/p.key.length>=0.6;});
+  const keyNums=new Set(parts.flatMap(p=>p.key.filter(k=>/^\d+(\.\d+)?$/.test(k))));
+  const saidNums=[...new Set(sw.filter(w=>/^\d+(\.\d+)?$/.test(w)&&!SWJ.has(w)))].sort((a,b)=>b.length-a.length);
   const unsure=/\b(lakh|lakhs|crore|crores|hundred|thousand|million|billion)\b/i.test(said)&&/\b(one|two|three|four|five|six|seven|eight|nine|ten|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)\b/i.test(said);
-  const wrongNum=keyNums.size&&saidNums.length&&!unsure&&!sw.some(x=>keyNums.has(x))?[saidNums[0]]:[];
+  const wrongNum=keyNums.size&&saidNums.length&&!unsure&&!parts.some(p=>p.approx)&&!sw.some(x=>keyNums.has(x))?[saidNums[0]]:[];
   const okN=parts.filter(p=>p.ok).length;
   let score=Math.max(hitW/allW,okN/parts.length);
   if(okN&&okN<parts.length)score=Math.max(score,parts[0].ok?0.5:0.4);
   if(wrongNum.length)score=Math.min(score,0.3);
-  return {score,parts:parts.map(p=>({text:p.text,ok:p.ok})),wrongNum};
+  return {score,parts:parts.map(p=>({text:p.text,ok:p.ok,approx:!!p.approx})),wrongNum};
 }
 async function setupListen(l){
   const b=$("#listen"); if(!b)return;
@@ -1649,7 +1666,7 @@ function viewCards(){
       CQ.mic=null;if(CQ.q[0]!==cur)return;
       if(!t){if(document.body.contains(said)){said.textContent=why==="not_granted"||why==="not-allowed"?"Microphone permission was refused. You can still tap to check.":"Didn't catch that. Tap 🎤 and try again.";mic.textContent="🎤 Say answer";mic.classList.remove("primary");}return;}
       CQ.said=t;const m=matchScore(t,cur.b);
-      const chips=m.parts.map(p=>`<span class="pc ${p.ok?"y":"n"}">${p.ok?"✓ ":""}${esc(p.text)}</span>`).join("")+(m.wrongNum.length?`<span class="pc x">✗ you said ${esc(m.wrongNum.join(", "))}</span>`:"");
+      const chips=m.parts.map(p=>`<span class="pc ${p.ok?"y":"n"}">${p.ok?(p.approx?"≈ ":"✓ "):""}${esc(p.text)}${p.approx?" (close enough)":""}</span>`).join("")+(m.wrongNum.length?`<span class="pc x">✗ you said ${esc(m.wrongNum.join(", "))}</span>`:"");
       const head=m.wrongNum.length?"✗ Wrong number. Suggested: Again":m.score>=0.75?"✓ Looks right. Suggested: Good (tap Easy if it was instant)":m.score>=0.4?"½ Partly right. Suggested: Hard":"✗ Doesn't match. Suggested: Again";
       CQ.verdict={r:m.wrongNum.length?"again":m.score>=0.75?"good":m.score>=0.4?"hard":"again",cls:m.wrongNum.length?"no":m.score>=0.75?"ok":m.score>=0.4?"part":"no",msg:head+`<div class="pcs">${chips}</div><div class="small muted" style="font-weight:400">Ticked = parts you said; dashed = not said. You can still choose any rating.</div>`};
       CQ.show=true;viewCards();if(S.cardSpeak)say(cur.b);});
