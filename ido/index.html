@@ -257,6 +257,13 @@ article.stack{padding-bottom:76px}
 .sld{display:flex;flex-direction:column;gap:6px}.sld input{width:100%;accent-color:var(--accent)}.sl-lab{display:flex;justify-content:space-between;font-size:13.5px}
 .sl-bar{height:10px;border-radius:5px;background:var(--line);overflow:hidden}.sl-bar i{display:block;height:100%;transition:width .2s}
 .sl-big{font-size:20px;font-weight:800}.sl-small{font-size:13px;color:var(--muted)}.clk{width:120px;align-self:center}
+.conf{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.cf{border:1px solid var(--line);background:var(--bg);border-radius:16px;padding:5px 12px;font:inherit;font-size:13px;cursor:pointer;color:var(--ink)}.cf.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+button.li{width:100%;text-align:left;font:inherit;color:inherit;background:none;cursor:pointer}
+.dbar{height:6px;border-radius:3px;background:var(--line);overflow:hidden}.dbar i{display:block;height:100%;width:100%;transition:width .2s linear}
+.csheet h1{font-size:22px}.sh-l{break-inside:avoid;margin-bottom:10px}.sh-l h3{font-size:14.5px;margin:10px 0 4px;color:var(--accent)}
+.sh-t{width:100%;border-collapse:collapse;font-size:13px}.sh-t td{border-bottom:1px solid var(--line);padding:3px 4px;vertical-align:top}.sh-t td:first-child{width:46%;color:var(--muted)}.sh-t td:last-child{font-weight:600}
+.sh-trap{font-size:12.5px;background:var(--bad-soft);border-radius:6px;padding:5px 8px;margin-top:4px}
+@media print{header.top,nav.tabs,.fab,.noprint,#fab{display:none!important}body{background:#fff}.csheet{columns:2;column-gap:18px}.sh-t td{color:#000!important}}
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
 nav.tabs .in{max-width:760px;margin:0 auto;display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
 nav.tabs a{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px 9px;text-decoration:none;color:var(--muted);font-size:12px;font-weight:600}
@@ -452,8 +459,11 @@ async function loadContent(force){
       p.questions.forEach(q=>{QIDX[q.id]={q,lid:p.id,mid:q.sec,pyq:true};});
     });
   }catch(e){PYQ=null;}
+  try{IV=await get("interview.json");}catch(e){IV=null;}
+  BANKN={};
+  await Promise.all((MAN.banks||[]).map(async f=>{try{const arr=await get(f);arr.forEach(q=>{QIDX[q.id]={q,lid:q.lid,mid:q.mid,bank:true};BANKN[q.mid]=(BANKN[q.mid]||0)+1;});}catch(e){console.warn("bank failed",f);}}));
 }
-let PYQ=null;
+let PYQ=null, BANKN={};
 const SECNAME=id=>id==="gs"?"Old GS":(modById(id)||{short:id}).short;
 const modById=id=>MAN.modules.find(m=>m.id===id);
 const lessonMeta=id=>{for(const m of MAN.modules){const l=m.lessons.find(x=>x.id===id);if(l)return{m,l};}return null;};
@@ -569,12 +579,16 @@ function render(soft){
   const {v,a}=parseHash();
   if(MOCK&&MOCK.timer&&v!=="mock"){/* keep timer running */}
   CUR_LESSON=null; $("#fab").hidden=true;
-  const TAB={cards:"practice",numbers:"learn",home:"today",learn:"learn",module:"learn",lesson:"learn",practice:"practice",quiz:"practice",mock:"practice",papers:"practice",paper:"practice",weak:"practice",progress:"progress",plan:"progress",more:"more",notes:"more",data:"more"};
+  const TAB={interview:"more",sheet:"learn",crash:"practice",drill:"practice",cards:"practice",numbers:"learn",home:"today",learn:"learn",module:"learn",lesson:"learn",practice:"practice",quiz:"practice",mock:"practice",papers:"practice",paper:"practice",weak:"practice",progress:"progress",plan:"progress",more:"more",notes:"more",data:"more"};
   const cur=TAB[v]||"today"; document.querySelectorAll("nav.tabs a").forEach(a=>{a.classList.toggle("on",a.dataset.tab===cur);if(a.dataset.tab===cur)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current");});
   if(v==="module")return viewModule(a);
   if(v==="lesson")return viewLesson(a);
   if(v==="quiz")return viewQuiz(a,soft);
   if(v==="mock")return viewMock(soft);
+  if(v==="drill")return viewDrill(a);
+  if(v==="sheet")return viewSheet(a);
+  if(v==="crash")return viewCrash();
+  if(v==="interview")return viewInterview(a);
   if(v==="weak")return viewWeak();
   if(v==="notes")return viewNotes();
   if(v==="plan")return viewPlan();
@@ -611,7 +625,7 @@ function viewHome(){
     if(e.side){const lm=lessonMeta(e.side);const ok=!!LIDX[e.side];items.push(`<a class="li" href="${ok?"#lesson-"+e.side:"#module-"+lm.m.id}">${ck("side")}<span class="grow"><span class="small muted">${esc(lm.m.short)} · 30 min</span><br><span class="t">${esc(lm.l.title)}</span></span>${ok?"":'<span class="chip mute">Coming soon</span>'}</a>`);}
     if(e.side_task){const pp=/2019/.test(e.side_task)&&PYQ;items.push(`<${pp?'a href="#quiz-pps-y2019"':"div"} class="li">${ck("st")}<span class="grow"><span class="small muted">Practice · 30 min${pp?" · ticks itself when you finish":""}</span><br><span class="t">${esc(e.side_task.replace(" (Past papers)",""))}</span></span>${pp?'<span class="muted">›</span>':""}</${pp?"a":"div"}>`);}
     if(e.mod){const m=modById(e.mod);items.push(`<a class="li" href="#module-${m.id}">${ck("rv")}<span class="grow"><span class="small muted">Revision</span><br><span class="t">${esc(m.title)}</span></span></a>`);}
-    if(e.task)items.push(`<${e.t==="mock"?'a href="#mock"':"div"} class="li">${ck("tk")}<span class="grow"><span class="small muted">${e.t==="mock"?"Mock test · ticks itself when you submit":"Task"}</span><br><span class="t">${esc(e.task)}</span></span></${e.t==="mock"?"a":"div"}>`);
+    if(e.task)items.push(`<${e.t==="mock"?'a href="#mock"':(/Interview/.test(e.task)?'a href="#interview"':'a href="#crash"')} class="li">${ck("tk")}<span class="grow"><span class="small muted">${e.t==="mock"?"Mock test · ticks itself when you submit":"Revision · opens your crash-revision plan"}</span><br><span class="t">${esc(e.task)}</span></span><span class="muted">›</span></a>`);
     if(ti>0)items.push(`<div class="li">${ck("rc")}<span class="grow"><span class="small muted">15 min · tap the circle when done</span><br><span class="t">Revise yesterday's recap</span></span></div>`);
     todayHtml=`<div class="row" style="justify-content:space-between"><div class="eyebrow">Today · Week ${e.w} · Day ${ti+1} of ${cal.length}${MAN.phases&&e.p?" · "+esc(MAN.phases[e.p]):""}</div><span class="small muted">${fmtDate(d)}</span></div><div class="list" style="margin-top:10px">${items.join("")}</div>`;
   }
@@ -762,8 +776,9 @@ let QZ=null;
 function buildQuiz(key){
   let ids=[],title="",back="#home",lesson=null;
   if(key==="weak"){ids=S.weak.filter(q=>QIDX[q]);title="Weak areas";back="#weak";}
+  if(key==="rapid"){ids=shuffle(S.weak.filter(q=>QIDX[q])).slice(0,8);const need=15-ids.length;ids=ids.concat(shuffle(mockPool().filter(k=>!ids.includes(k))).slice(0,need));title="Rapid revision";back="#crash";}
   else if(key.startsWith("pp-")||key.startsWith("pps-")){const only=key.startsWith("pps-");const pid=key.slice(key.indexOf("-")+1);const p=PYQ&&PYQ.papers.find(x=>x.id===pid);if(p){ids=p.questions.filter(q=>!only||q.sec!=="gs").map(q=>q.id);title=p.title;back="#paper-"+pid;}}
-  else if(key.startsWith("mod-")){const mid=key.slice(4);const d=MODS[mid];if(d)d.lessons.forEach(l=>l.mcqs.forEach(q=>ids.push(q.id)));title=modById(mid).title;back="#module-"+mid;ids=shuffle(ids);}
+  else if(key.startsWith("mod-")){const mid=key.slice(4);const d=MODS[mid];if(d)d.lessons.forEach(l=>l.mcqs.forEach(q=>ids.push(q.id)));for(const k in QIDX)if(QIDX[k].bank&&QIDX[k].mid===mid)ids.push(k);title=modById(mid).title;back="#module-"+mid;ids=shuffle(ids);}
   else{const r=LIDX[key];if(r){ids=r.l.mcqs.map(q=>q.id);title=r.l.title;back="#lesson-"+key;lesson=r.l;}}
   return {key,title,back,lesson,items:ids.map(id=>({q:QIDX[id].q,id,lid:QIDX[id].lid})),i:0,ans:{},score:0};
 }
@@ -820,24 +835,37 @@ async function genQuestions(btn){
 
 /* ---------- mock ---------- */
 let MOCK=null, TICK=null;
-function mockPool(){return Object.keys(QIDX).filter(k=>QIDX[k].mid!=="gs");}
-function startMock(ids,minutes,label){MOCK={ids,ans:{},i:0,start:Date.now(),dur:Math.round(minutes*60)*1000,done:false,label:label||""};if(location.hash!=="#mock")location.hash="mock";else mockRun();}
+function mockPool(){return Object.keys(QIDX).filter(k=>QIDX[k].mid!=="gs"&&QIDX[k].q&&QIDX[k].q.o&&QIDX[k].q.o.length>=2);}
+function startMock(ids,minutes,label){MOCK={ids,ans:{},conf:{},i:0,start:Date.now(),dur:Math.round(minutes*60)*1000,done:false,label:label||""};if(location.hash!=="#mock")location.hash="mock";else mockRun();}
+function buildMock(n,only){
+  const pool=mockPool();const seen=new Set(S.mseen||[]);const by={};pool.forEach(k=>{(by[QIDX[k].mid]=by[QIDX[k].mid]||[]).push(k);});
+  const mods=MAN.modules.filter(m=>!only||m.id===only);const tot=mods.reduce((a,m)=>a+m.marks,0);
+  let quota=mods.map(m=>({m,n:Math.round(n*m.marks/tot)}));let diff=n-quota.reduce((a,x)=>a+x.n,0);quota[quota.length-1].n+=diff;
+  const out=[];quota.forEach(({m,n:k})=>{const arr=by[m.id]||[];const fresh=shuffle(arr.filter(x=>!seen.has(x))),old=shuffle(arr.filter(x=>seen.has(x)));out.push(...fresh.concat(old).slice(0,k));});
+  // keep exam order: sections as in the paper
+  return out;
+}
 function viewMock(soft){
   if(MOCK&&!MOCK.done)return mockRun();
   if(MOCK&&MOCK.done&&soft!==false&&parseHash().a==="result")return mockResult();
-  const pool=mockPool().length;
-  const sizes=[25,50,100].map(n=>Math.min(n,pool)).filter((v,i,a)=>a.indexOf(v)===i);
+  const pool=mockPool();const seen=new Set(S.mseen||[]);const fresh=pool.filter(k=>!seen.has(k)).length;
   const hist=S.mocks.slice(-8).reverse();
   app.innerHTML=`<div class="stack">
     <a class="small" href="#practice">‹ Practice</a>
-    <div><div class="eyebrow">Exam conditions</div><h1>Mock test</h1><p class="muted" style="margin:6px 0 0">Timed at the real pace (54 seconds per question), with −${MAN.exam.negative} for each wrong answer. You see answers only at the end.</p></div>
-    <p class="notice">The question bank has ${pool} questions: the modules written so far plus past-paper questions that fit the 2026 syllabus. Full 100-question mocks will cover all seven sections as modules are added.</p>
-    <div class="row">${sizes.map(n=>`<button class="btn ${n===sizes[sizes.length-1]?"primary":""}" data-n="${n}">${n} questions · ${Math.round(n*0.9)} min</button>`).join("")}</div>
+    <div><div class="eyebrow">Exam conditions</div><h1>Mock test</h1><p class="muted" style="margin:6px 0 0">Like the real paper: sections weighted by marks (English 15, Safety 10, Environment 15, Science 15, Computers 10, WB industry 15, Arithmetic 20), 54 seconds per question, −${MAN.exam.negative} for a wrong answer. Questions you haven't met in a mock come first.</p></div>
+    <p class="notice">Question bank: <b>${pool.length}</b> questions · <b>${fresh}</b> not yet used in your mocks.</p>
+    <div class="list">
+      <button class="li" data-mk="100"><span class="grow"><span class="t">Full mock · 100 questions · 90 min</span><br><span class="small muted">Exactly the exam's section split</span></span><span class="chip gold">Real exam</span></button>
+      <button class="li" data-mk="50"><span class="grow"><span class="t">Half mock · 50 questions · 45 min</span><br><span class="small muted">Same split, half the length</span></span></button>
+      <button class="li" data-mk="25"><span class="grow"><span class="t">Quick mock · 25 questions · 22 min</span><br><span class="small muted">For a busy day</span></span></button>
+    </div>
+    <h2>Section test</h2><p class="small muted" style="margin:0">20 questions from one section · 18 min</p>
+    <div class="row" style="flex-wrap:wrap">${MAN.modules.map(m=>`<button class="btn sm" data-sec="${m.id}">${esc(m.short)}</button>`).join("")}</div>
+    <p class="small muted" style="margin:0">During a mock, tag each answer <b>Sure</b>, <b>50-50</b> or <b>Guess</b>. The result shows whether your guesses are earning or losing marks.</p>
     ${hist.length?`<h2>Recent mocks</h2><div class="list">${hist.map(h=>`<div class="li"><span class="grow"><span class="t">${h.score} / ${h.total}${h.label?` · ${esc(h.label)}`:""}</span><br><span class="small muted">${new Date(h.ts).toLocaleString("en-IN",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})} · ${h.c} right · ${h.w} wrong · ${h.u} skipped</span></span><span class="chip ${h.pct>=60?"good":h.pct>=40?"gold":"bad"}">${h.pct}%</span></div>`).join("")}</div>`:""}
   </div>`;
-  app.querySelectorAll("[data-n]").forEach(b=>b.onclick=()=>{
-    const n=+b.dataset.n; startMock(shuffle(mockPool()).slice(0,n),n*0.9);
-  });
+  app.querySelectorAll("[data-mk]").forEach(b=>b.onclick=()=>{const n=+b.dataset.mk;startMock(buildMock(n),n*0.9,n===100?"Full mock":n===50?"Half mock":"Quick mock");});
+  app.querySelectorAll("[data-sec]").forEach(b=>b.onclick=()=>{const m=b.dataset.sec;startMock(shuffle(buildMock(20,m)),18,modById(m).short+" section test");});
 }
 function mockLeft(){return Math.max(0,MOCK.start+MOCK.dur-Date.now());}
 function fmtMs(ms){const s=Math.ceil(ms/1000);return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");}
@@ -849,6 +877,7 @@ function mockRun(){
     <div class="row" style="justify-content:space-between"><span class="small muted">Question ${MOCK.i+1} of ${MOCK.ids.length} · ${answered} answered</span><span class="timer" id="timer">${fmtMs(mockLeft())}</span></div>
     <div class="card stack"><h2 style="font-weight:600;line-height:1.4">${esc(q.q)}</h2>
       <div class="stack" style="gap:8px">${q.o.map((o,j)=>`<button class="opt ${a===j?"sel":""}" data-j="${j}"><span class="lt">${LETTERS[j]}</span><span>${esc(o)}</span></button>`).join("")}</div>
+      ${a!=null?`<div class="conf"><span class="small muted">How sure?</span>${[["s","Sure"],["h","50-50"],["g","Guess"]].map(([k,t])=>`<button class="cf ${(MOCK.conf||{})[MOCK.i]===k?"on":""}" data-cf="${k}">${t}</button>`).join("")}</div>`:""}
       <div class="row"><button class="btn" id="mprev" ${MOCK.i?"":"disabled"}>‹ Previous</button><button class="btn" id="mclear" ${a==null?"disabled":""}>Clear answer</button><button class="btn primary" id="mnext">${MOCK.i+1<MOCK.ids.length?"Next ›":"Review and submit"}</button></div>
     </div>
     <div class="card"><div class="small muted" style="margin-bottom:8px">Jump to a question</div><div class="qnav">${MOCK.ids.map((_,i)=>`<button data-i="${i}" class="${MOCK.ans[i]!=null?"ans":""} ${i===MOCK.i?"cur":""}">${i+1}</button>`).join("")}</div></div>
@@ -856,9 +885,10 @@ function mockRun(){
     <div id="mconfirm"></div>
   </div>`;
   app.querySelectorAll(".opt").forEach(b=>b.onclick=()=>{MOCK.ans[MOCK.i]=+b.dataset.j;mockRun();});
+  app.querySelectorAll("[data-cf]").forEach(b=>b.onclick=()=>{MOCK.conf=MOCK.conf||{};MOCK.conf[MOCK.i]=b.dataset.cf;mockRun();});
   app.querySelectorAll(".qnav button").forEach(b=>b.onclick=()=>{MOCK.i=+b.dataset.i;mockRun();});
   $("#mprev").onclick=()=>{if(MOCK.i){MOCK.i--;mockRun();}};
-  $("#mclear").onclick=()=>{delete MOCK.ans[MOCK.i];mockRun();};
+  $("#mclear").onclick=()=>{delete MOCK.ans[MOCK.i];if(MOCK.conf)delete MOCK.conf[MOCK.i];mockRun();};
   $("#mnext").onclick=()=>{if(MOCK.i+1<MOCK.ids.length){MOCK.i++;mockRun();}else confirmSubmit();};
   $("#msubmit").onclick=confirmSubmit;
   TICK=setInterval(()=>{const t=$("#timer");const left=mockLeft();if(t)t.textContent=fmtMs(left);if(left<=0){clearInterval(TICK);submitMock();}},1000);
@@ -874,11 +904,119 @@ function submitMock(){
   MOCK.ids.forEach((id,i)=>{const r=QIDX[id];const a=MOCK.ans[i];const bm=byMod[r.mid]||(byMod[r.mid]={c:0,w:0,u:0,t:0});bm.t++;
     if(a==null){u++;bm.u++;}else if(a===r.q.a){c++;bm.c++;recordAnswer(id,true);}else{w++;bm.w++;recordAnswer(id,false);}});
   const score=Math.round((c-MAN.exam.negative*w)*100)/100;
-  MOCK.done=true; MOCK.res={c,w,u,score,byMod,total:MOCK.ids.length,taken:Date.now()-MOCK.start};
-  S.mocks.push({ts:Date.now(),label:MOCK.label||"",score,total:MOCK.ids.length,c,w,u,pct:Math.round(100*Math.max(0,score)/MOCK.ids.length)});
+  const cf={s:{c:0,w:0},h:{c:0,w:0},g:{c:0,w:0}};MOCK.ids.forEach((id,i)=>{const a=MOCK.ans[i];if(a==null)return;const k=(MOCK.conf||{})[i]||"s";cf[k][a===QIDX[id].q.a?"c":"w"]++;});
+  MOCK.done=true; MOCK.res={c,w,u,score,byMod,cf,total:MOCK.ids.length,taken:Date.now()-MOCK.start};
+  S.mseen=[...new Set([...(S.mseen||[]),...MOCK.ids])].slice(-3000);
+  S.mocks.push({ts:Date.now(),label:MOCK.label||"",score,total:MOCK.ids.length,c,w,u,cf,pct:Math.round(100*Math.max(0,score)/MOCK.ids.length)});
   if(S.mocks.length>60)S.mocks=S.mocks.slice(-60);
   persist("s");
   if(location.hash!=="#mock-result")location.hash="mock-result";else mockResult();
+}
+let DR=null,DTICK=null;
+function drillPool(kind){const ar=["m7l1","m7l2","m7l3","m7l4","m7l5"];return Object.keys(QIDX).filter(k=>{const r=QIDX[k];if(r.mid!=="m7")return false;if(r.pyq)return kind==="mix";const isA=ar.includes(r.lid);return kind==="mix"||(kind==="arith"?isA:!isA);});}
+function viewDrill(){
+  clearInterval(DTICK);
+  if(DR&&!DR.done)return drillRun();
+  const hist=(S.drills||[]).slice(-6).reverse();
+  app.innerHTML=`<div class="stack"><a class="small" href="#practice">‹ Practice</a>
+    <div><div class="eyebrow">Beat the clock</div><h1>Speed drill</h1><p class="muted" style="margin:6px 0 0">10 questions, 40 seconds each: the pace you need to bank time for the rest of the paper. The clock moves on by itself.</p></div>
+    <div class="list">${[["arith","Arithmetic","percentages, ratios, work, speed, interest"],["reason","Reasoning","series, coding, relations, puzzles, clocks"],["mix","Mixed","both"]].map(([k,t,d])=>`<button class="li" data-k="${k}"><span class="grow"><span class="t">${t}</span><br><span class="small muted">${d} · ${drillPool(k).length} questions</span></span><span class="muted">›</span></button>`).join("")}</div>
+    ${hist.length?`<h2>Recent drills</h2><div class="list">${hist.map(h=>`<div class="li"><span class="grow"><span class="t">${h.c} / ${h.n} · ${h.kind}</span><br><span class="small muted">${new Date(h.ts).toLocaleDateString("en-IN",{day:"numeric",month:"short"})} · average ${h.avg}s per question</span></span><span class="chip ${h.avg<=40&&h.c>=7?"good":"gold"}">${h.avg}s</span></div>`).join("")}</div>`:""}
+  </div>`;
+  app.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{const k=b.dataset.k;DR={kind:{arith:"Arithmetic",reason:"Reasoning",mix:"Mixed"}[k],ids:shuffle(drillPool(k)).slice(0,10),i:0,res:[],t0:Date.now(),streak:0,best:0,done:false};drillRun();});
+}
+function drillRun(){
+  clearInterval(DTICK);
+  if(DR.i>=DR.ids.length)return drillEnd();
+  const id=DR.ids[DR.i],q=QIDX[id].q;DR.qs=Date.now();const LIM=40;
+  app.innerHTML=`<div class="stack"><div class="row" style="justify-content:space-between"><span class="small muted">Question ${DR.i+1} of ${DR.ids.length} · streak ${DR.streak}</span><span class="timer" id="dt">40</span></div>
+    <div class="dbar"><i id="dbi"></i></div>
+    <div class="card stack"><h2 style="font-weight:600;line-height:1.4">${esc(q.q)}</h2><div class="stack" style="gap:8px">${q.o.map((o,j)=>`<button class="opt" data-j="${j}"><span class="lt">${LETTERS[j]}</span><span>${esc(o)}</span></button>`).join("")}</div><div id="dfb"></div></div></div>`;
+  const fin=(j)=>{clearInterval(DTICK);const t=Math.min(LIM,(Date.now()-DR.qs)/1000);const ok=j===q.a;DR.res.push({id,ok,t,skip:j==null});
+    if(j!=null)recordAnswer(id,ok);DR.streak=ok?DR.streak+1:0;DR.best=Math.max(DR.best,DR.streak);
+    app.querySelectorAll(".opt").forEach((b,k)=>{b.disabled=true;if(k===q.a)b.classList.add("right");else if(k===j)b.classList.add("wrong");});
+    $("#dfb").innerHTML=`<p class="small" style="margin:6px 0 0"><b>${j==null?"Time's up.":ok?"Correct":"Not quite"}</b> ${esc(q.e)}</p><button class="btn primary" id="dnext" style="margin-top:8px">${DR.i+1<DR.ids.length?"Next ›":"See result"}</button>`;
+    $("#dnext").onclick=()=>{DR.i++;drillRun();};};
+  app.querySelectorAll(".opt").forEach(b=>b.onclick=()=>fin(+b.dataset.j));
+  DTICK=setInterval(()=>{const left=Math.max(0,LIM-(Date.now()-DR.qs)/1000);const e=$("#dt");if(!e){clearInterval(DTICK);return;}e.textContent=Math.ceil(left);$("#dbi").style.width=(left/LIM*100)+"%";$("#dbi").style.background=left<10?"var(--bad)":left<20?"var(--gold)":"var(--good)";if(left<=0)fin(null);},200);
+}
+function drillEnd(){
+  const c=DR.res.filter(r=>r.ok).length,avg=Math.round(DR.res.reduce((a,r)=>a+r.t,0)/DR.res.length);
+  if(!DR.done){DR.done=true;S.drills=(S.drills||[]).concat([{ts:Date.now(),kind:DR.kind,c,n:DR.res.length,avg}]).slice(-40);persist("s");if(c>=8)celebrate(`${c}/10 · average ${avg}s`);}
+  const prev=(S.drills||[]).filter(d=>d.kind===DR.kind).slice(0,-1);const bestPrev=prev.length?Math.max(...prev.map(d=>d.c)):null;
+  app.innerHTML=`<div class="stack"><a class="small" href="#practice">‹ Practice</a>
+   <div class="card"><div class="eyebrow">${esc(DR.kind)} drill</div><h1 style="margin-top:4px">${c} / ${DR.res.length}</h1><p class="muted" style="margin:6px 0 0">Average ${avg} seconds per question · best streak ${DR.best}${bestPrev!=null?` · your previous best ${bestPrev}/10`:""}</p></div>
+   <p class="notice">${avg<=40&&c>=7?"Exam-ready pace. Keep it up.":avg>40?"Too slow for exam pace: aim for 40 seconds. Use the shortcuts in Module 7.":"Fast enough, but accuracy needs work: slow down slightly and check units."}</p>
+   <div class="row"><button class="btn primary" id="dagain">Another drill</button><a class="btn" href="#weak">Review mistakes</a></div></div>`;
+  $("#dagain").onclick=()=>{DR=null;viewDrill();};
+}
+let IV=null;
+function viewInterview(a){
+  if(!IV){app.innerHTML=`<div class="stack"><p class="notice">Interview material didn't load. Try again later.</p></div>`;return;}
+  S.iv=S.iv||{};
+  const all=[];IV.cats.forEach(c=>c.qs.forEach((q,i)=>all.push({c,q,k:c.id+i})));
+  if(a==="practice"){
+    const pool=all.filter(x=>S.iv[x.k]!=="g");const pick=(pool.length?pool:all)[Math.floor(Math.random()*(pool.length||all.length))];
+    let t=90,tm=null;
+    app.innerHTML=`<div class="stack"><a class="small" href="#interview">‹ Interview prep</a>
+      <div class="eyebrow">${esc(pick.c.title)}</div><h1 style="font-size:21px">${esc(pick.q.q)}</h1>
+      <p class="muted small" style="margin:0">Answer aloud as if the board asked you. Aim for 60–90 seconds.</p>
+      <div class="row" style="gap:10px;align-items:center"><button class="btn primary" id="go">Start 90-second timer</button><b id="tt" style="font-size:22px">1:30</b></div>
+      <button class="btn" id="rv">Show key points</button><div id="kp"></div></div>`;
+    $("#go").onclick=()=>{clearInterval(tm);t=90;tm=setInterval(()=>{t--;$("#tt")&&($("#tt").textContent=`${Math.floor(Math.max(t,0)/60)}:${String(Math.max(t,0)%60).padStart(2,"0")}`);if(t<=0){clearInterval(tm);toastPep&&toastPep("Time! Wrap up in one sentence.");}},1000);};
+    $("#rv").onclick=()=>{clearInterval(tm);$("#rv").remove();$("#kp").innerHTML=ivCard(pick)+`<p class="small muted">How did you do?</p><div class="row" style="gap:8px"><button class="btn" data-r="n">Needs work</button><button class="btn primary" data-r="g">Confident</button></div>`;
+      $("#kp").querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{S.iv[pick.k]=b.dataset.r;persist("s");viewInterview("practice");});};
+    return;
+  }
+  const done=all.filter(x=>S.iv[x.k]==="g").length;
+  app.innerHTML=`<div class="stack"><a class="small" href="#more">‹ More</a>
+    <div><div class="eyebrow">Personality test · 15 marks</div><h1>Interview prep</h1><p class="muted" style="margin:6px 0 0">${esc(IV.intro)}</p></div>
+    <a class="btn primary" href="#interview-practice">Practise a random question (${done}/${all.length} confident)</a>
+    <details class="card"><summary><b>How to answer</b></summary><ul>${IV.rules.map(r=>`<li>${esc(r)}</li>`).join("")}</ul></details>
+    ${IV.cats.map(c=>`<h2>${esc(c.title)}</h2>${c.lids?`<p class="small muted" style="margin:0">Revise: ${c.lids.map(l=>LIDX[l]?`<a href="#lesson-${l}">${esc(LIDX[l].l.title)}</a>`:"").join(" · ")}</p>`:""}
+      ${c.qs.map((q,i)=>`<details class="card"><summary>${S.iv[c.id+i]==="g"?"✓ ":""}${esc(q.q)}</summary>${ivCard({q})}</details>`).join("")}`).join("")}
+    <h2>Week-before checklist</h2><ul>${IV.checklist.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
+  </div>`;
+}
+function ivCard(x){return `<ul style="margin:8px 0">${x.q.pts.map(p=>`<li>${esc(p)}</li>`).join("")}</ul>${x.q.trap?`<div class="sh-trap"><b>Avoid:</b> ${esc(x.q.trap)}</div>`:""}`;}
+function viewSheet(mid){
+  const m=modById(mid),d=MODS[mid];if(!m||!d){location.hash="crash";return;}
+  app.innerHTML=`<div class="stack csheet">
+    <div class="noprint row" style="justify-content:space-between"><a class="small" href="#crash">‹ Crash revision</a><button class="btn sm" id="pr">Print / save as PDF</button></div>
+    <div><div class="eyebrow">Cheat sheet · ${m.marks} marks</div><h1>${esc(m.title)}</h1></div>
+    ${d.lessons.map(l=>`<div class="sh-l"><h3>${esc(l.title)}</h3><table class="sh-t">${l.facts.concat(l.cards||[]).map(f=>`<tr><td>${esc(f[0])}</td><td>${esc(f[1])}</td></tr>`).join("")}</table>${l.traps.length?`<div class="sh-trap"><b>Traps:</b> ${l.traps.map(esc).join(" · ")}</div>`:""}</div>`).join("")}
+  </div>`;
+  $("#pr").onclick=()=>{try{window.print();}catch(e){}};
+}
+function secStats(){const by={};for(const k in S.qs){const r=QIDX[k];if(!r)continue;const b=by[r.mid]||(by[r.mid]={c:0,w:0});b.c+=S.qs[k].c;b.w+=S.qs[k].w;}return by;}
+function viewCrash(){
+  const by=secStats();const dk=deck();const due=dk.due.length+dk.fresh.length;
+  const rank=MAN.modules.map(m=>{const b=by[m.id];const n=b?b.c+b.w:0;const acc=n?b.c/n:null;const risk=acc==null?m.marks:m.marks*(1-acc);return {m,acc,n,risk};}).sort((a,b)=>b.risk-a.risk);
+  app.innerHTML=`<div class="stack"><a class="small" href="#practice">‹ Practice</a>
+    <div><div class="eyebrow">Last weeks before the exam</div><h1>Crash revision</h1><p class="muted" style="margin:6px 0 0">Sections ranked by <b>marks at risk</b> (exam marks × share you're getting wrong). Untested sections count as fully at risk.</p></div>
+    <div class="list">${rank.map((r,i)=>`<div class="li" style="flex-wrap:wrap"><span class="grow" style="min-width:160px"><span class="t">${i+1}. ${esc(r.m.short)} · ${r.m.marks} marks</span><br><span class="small muted">${r.acc==null?"Not tested yet":`Accuracy ${Math.round(r.acc*100)}% over ${r.n} answers`} · about ${r.risk.toFixed(1)} marks at risk</span></span><span class="row" style="gap:6px"><a class="btn sm" href="#sheet-${r.m.id}">Cheat sheet</a><a class="btn sm" href="#numbers-${r.m.id}">Visuals</a><a class="btn sm primary" href="#quiz-mod-${r.m.id}">Practise</a></span></div>`).join("")}</div>
+    <h2>Every revision day (about 60 min)</h2>
+    <div class="list">
+      <a class="li" href="#cards"><span class="grow"><span class="t">1. Flashcards</span><br><span class="small muted">15 min · keeps every fact fresh</span></span><span class="chip ${due?"gold":"mute"}">${due} due</span></a>
+      <a class="li" href="#sheet-${rank[0].m.id}"><span class="grow"><span class="t">2. Cheat sheet: ${esc(rank[0].m.short)}</span><br><span class="small muted">15 min · your biggest marks-at-risk section</span></span><span class="muted">›</span></a>
+      <a class="li" href="#quiz-rapid"><span class="grow"><span class="t">3. Rapid revision quiz</span><br><span class="small muted">15 questions · your past mistakes first, then mixed</span></span><span class="muted">›</span></a>
+      <a class="li" href="#drill"><span class="grow"><span class="t">4. Speed drill</span><br><span class="small muted">10 questions at exam pace</span></span><span class="muted">›</span></a>
+    </div>
+    <p class="small muted" style="margin:0">On mock days: take the full mock, then use the guessing coach and review every mistake.</p>
+  </div>`;
+}
+function guessCoach(cf){
+  if(!cf)return"";const neg=MAN.exam.negative;const net=x=>Math.round((x.c-neg*x.w)*100)/100;
+  const tagged=cf.h.c+cf.h.w+cf.g.c+cf.g.w;
+  const all={s:{c:0,w:0},h:{c:0,w:0},g:{c:0,w:0}};S.mocks.forEach(m=>{if(!m.cf)return;["s","h","g"].forEach(k=>{all[k].c+=m.cf[k].c;all[k].w+=m.cf[k].w;});});
+  const pct=x=>x.c+x.w?Math.round(100*x.c/(x.c+x.w)):null;
+  const row=(k,t)=>{const x=cf[k];return `<tr><td>${t}</td><td>${x.c+x.w}</td><td>${x.c} / ${x.w}</td><td><b>${net(x)>0?"+":""}${net(x)}</b></td></tr>`;};
+  const verdict=k=>{const p=pct(all[k]);if(p==null)return"";return p>20?`keep answering these (you're right ${p}% of the time; break-even is 20%)`:`these are costing you marks (only ${p}% right; break-even is 20%): skip them`;};
+  return `<div class="card stack" style="gap:8px"><h2 style="margin:0">Guessing coach</h2>
+   ${tagged?`<table class="facts"><tr><td><b>Tag</b></td><td><b>Answered</b></td><td><b>Right / wrong</b></td><td><b>Net marks</b></td></tr>${row("s","Sure")}${row("h","50-50")}${row("g","Guess")}</table>
+   <p class="small" style="margin:0">Score if you had skipped your <b>guesses</b>: ${Math.round((MOCK.res.score-net(cf.g))*100)/100} (you scored ${MOCK.res.score}). If you had also skipped your <b>50-50s</b>: ${Math.round((MOCK.res.score-net(cf.g)-net(cf.h))*100)/100}.</p>
+   <p class="small" style="margin:0">Across all your mocks: 50-50 answers: ${verdict("h")||"no data yet"}. Guesses: ${verdict("g")||"no data yet"}.</p>`:`<p class="small muted" style="margin:0">Tag answers Sure, 50-50 or Guess during the next mock to see whether guessing helps you.</p>`}
+   <p class="small muted" style="margin:0">The maths: with 4 options and −0.25 per wrong answer, an answer pays off if you're right more than 20% of the time. A pure blind guess (25%) is barely positive (+0.06 marks on average); ruling out one option raises it to +0.17, ruling out two to +0.38.</p></div>`;
 }
 function mockResult(){
   if(!MOCK||!MOCK.res){location.hash="mock";return;}
@@ -889,6 +1027,7 @@ function mockResult(){
     <a class="small" href="#practice">‹ Practice</a>
     <div class="card"><div class="eyebrow">Mock result</div><h1 style="margin-top:4px">${R.score} / ${R.total}</h1><p class="muted" style="margin:6px 0 0">${R.c} right · ${R.w} wrong (−${Math.round(R.w*MAN.exam.negative*100)/100}) · ${R.u} skipped · ${fmtMs(R.taken)} taken</p></div>
     <div class="card tablewrap"><table class="facts" style="min-width:340px"><tr><td><b>Section</b></td><td><b>Right</b></td><td><b>Wrong</b></td><td><b>Skipped</b></td><td><b>Score</b></td></tr>${rows}</table></div>
+    ${guessCoach(R.cf)}
     <div class="row"><a class="btn primary" href="#weak">Practise weak areas</a><button class="btn" id="newmock">New mock</button></div>
     ${review?`<h2>Review: wrong and skipped</h2>${review}`:"<p>Perfect score. Nothing to review.</p>"}
   </div>`;
@@ -1010,6 +1149,7 @@ function viewPractice(){
   app.innerHTML=`<div class="stack">
     <div><div class="eyebrow">Questions and tests</div><h1>Practice</h1></div>
     ${(()=>{const dk=deck();const n=dk.due.length+dk.fresh.length;return `<a class="li card" href="#cards" style="border-radius:var(--r)"><span class="grow"><span class="t">Flashcards</span><br><span class="small muted">Spaced repetition of key facts from finished lessons</span></span><span class="chip ${n?"gold":"mute"}">${n} due</span></a>`;})()}
+    <a class="li card" href="#drill" style="border-radius:var(--r)"><span class="grow"><span class="t">Speed drill</span><br><span class="small muted">10 arithmetic or reasoning questions, 40 seconds each</span></span><span class="chip gold">${(S.drills||[]).length?"Best "+Math.max(...S.drills.map(d=>d.c))+"/10":"New"}</span></a>
     <section class="card stack" style="gap:8px"><div class="sec-h"><h2>Mock test</h2><span class="small muted">${pool} questions in the bank</span></div><p class="small muted" style="margin:0">Timed, with −${MAN.exam.negative} for each wrong answer, like the real exam.</p><div class="row"><a class="btn primary" href="#mock">Start a mock test</a></div></section>
     <section class="stack" style="gap:8px"><h2>Weak areas</h2>
       <a class="li card" href="#weak" style="border-radius:var(--r)"><span class="grow"><span class="t">Questions you got wrong</span><br><span class="small muted">Answer one correctly and it leaves the list</span></span><span class="chip ${S.weak.length?"bad":"mute"}">${S.weak.length}</span></a></section>
@@ -1061,6 +1201,8 @@ function viewMore(){
   app.innerHTML=`<div class="stack">
     <div><h1>More</h1></div>
     <div class="list">
+      <a class="li" href="#interview"><span class="grow"><span class="t">Interview prep</span><br><span class="small muted">15 marks · likely questions, answer outlines, timed practice</span></span><span class="muted">›</span></a>
+      <a class="li" href="#crash"><span class="grow"><span class="t">Crash revision</span><br><span class="small muted">Your weakest sections first, cheat sheets, rapid quizzes</span></span><span class="muted">›</span></a>
       <a class="li" href="#notes"><span class="grow"><span class="t">My notes</span><br><span class="small muted">Answers you saved while asking doubts</span></span><span class="chip mute">${N.items.length}</span></a>
       <a class="li" href="#data"><span class="grow"><span class="t">Backup and restore</span><br><span class="small muted">Export or import your progress and notes</span></span><span class="muted">›</span></a>
     </div>
@@ -1102,7 +1244,7 @@ function setupSteps(id,l){
   draw();
 }
 const PEPS=["Nice pace. Two parts down.","Halfway there. Stretch for 10 seconds?","You're doing well. Keep going.","Good focus. One more push."];
-function toastPep(){const t=document.createElement("div");t.className="pep";t.textContent=PEPS[Math.floor(Math.random()*PEPS.length)];document.body.appendChild(t);setTimeout(()=>t.remove(),2200);}
+function toastPep(msg){const t=document.createElement("div");t.className="pep";t.textContent=msg||PEPS[Math.floor(Math.random()*PEPS.length)];document.body.appendChild(t);setTimeout(()=>t.remove(),2200);}
 function matchGame(box,l){
   if(!box)return;const pool=shuffle(l.facts.map((f,i)=>({k:f[0],v:f[1],i}))).slice(0,4);
   if(pool.length<2){box.hidden=true;return;}
