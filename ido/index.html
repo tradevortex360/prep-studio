@@ -198,6 +198,25 @@ input[type=date]{font:inherit;padding:6px 10px;border:1px solid var(--line);bord
 .wbmap .mt.on{outline:2px solid var(--ink)}
 .rg-n{background:var(--good-soft);color:var(--good)}.rg-w{background:var(--gold-soft);color:var(--gold)}.rg-h{background:var(--accent-soft);color:var(--accent)}.rg-c{background:var(--bad-soft);color:var(--bad)}
 .viz .mi{margin-top:10px;font-size:13.5px;border-top:1px solid var(--line);padding-top:8px;min-height:40px}
+/* drawn visuals */
+.nfpa-wrap{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.nfpa{width:170px;height:170px;flex:none}
+.nfpa .nf-n{font-size:22px;font-weight:800;font-family:var(--font-ui)}
+.nfpa-key{flex:1;min-width:170px;font-size:13.5px;display:flex;flex-direction:column;gap:5px}
+.nfpa-key i{display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.dial{display:flex;flex-direction:column;align-items:center;gap:6px}
+.dial-svg{width:100%;max-width:280px}
+.dial-svg .dl{font-size:11px;fill:var(--muted);font-family:var(--font-ui)}
+.dial .needle{transition:transform .25s}
+.dial-read{text-align:center}.dial-read .db{display:block;font-size:24px;font-weight:800}.dial-read .tm{font-size:15px;font-weight:600}
+.dial input[type=range]{width:100%;max-width:300px;accent-color:var(--accent)}
+.bld{max-width:460px;margin:0 auto}
+.bld .roof{width:62%;height:24px;background:var(--line);clip-path:polygon(0 100%,50% 0,100% 100%)}
+.bld .fr{display:grid;grid-template-columns:62% 1fr;column-gap:8px;align-items:stretch}
+.bld .fl-row{display:flex;flex-direction:column;justify-content:center;padding:7px 10px;border-bottom:2px solid var(--surface);font-size:13.5px;line-height:1.25;min-height:50px}
+.bld .fl-row span,.bld .annex span{font-size:12px;opacity:.9}
+.bld .annex{display:flex;flex-direction:column;justify-content:center;padding:6px 8px;font-size:12.5px;line-height:1.25;border:2px dashed currentColor;border-left:0;border-radius:0 8px 8px 0;margin:3px 0}
+.bld .ground{height:6px;background:var(--muted);border-radius:3px;opacity:.5}
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
 nav.tabs .in{max-width:760px;margin:0 auto;display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
 nav.tabs a{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px 9px;text-decoration:none;color:var(--muted);font-size:12px;font-weight:600}
@@ -1013,7 +1032,16 @@ function viewMore(){
   const lk=$("#lockbtn2"); if(lk)lk.onclick=()=>ENV.lock();
 }
 
+function hydrateDials(){
+  app.querySelectorAll(".dial").forEach(d=>{if(d.dataset.ready)return;d.dataset.ready="1";const inp=d.querySelector("input"),nd=d.querySelector(".needle"),db=d.querySelector(".db"),tm=d.querySelector(".tm");
+    const upd=()=>{const v=+inp.value;nd.style.transformOrigin="120px 120px";nd.style.transform=`rotate(${(v-80)/40*180-90}deg)`;db.textContent=v+" dB(A)";
+      if(v>115){tm.textContent="Not allowed at any duration";tm.style.color="var(--bad)";}
+      else if(v<=90){tm.textContent=v===90?"8 hours a day (the limit)":"Within the 8-hour limit";tm.style.color="var(--good)";}
+      else{const h=8/Math.pow(2,(v-90)/5);const hh=Math.floor(h),mm=Math.round((h-hh)*60);tm.textContent=`Max ${hh?hh+" h ":""}${mm?mm+" min":""} a day`;tm.style.color=v>=105?"var(--bad)":"var(--gold)";}};
+    inp.oninput=upd;upd();});
+}
 function hydrateMaps(){
+  hydrateDials();
   app.querySelectorAll(".wbmap").forEach(m=>{if(m.dataset.ready)return;m.dataset.ready="1";const info=m.parentElement.querySelector(".mi");
     m.querySelectorAll(".mt").forEach(t=>t.onclick=()=>{m.querySelectorAll(".mt").forEach(x=>x.classList.remove("on"));t.classList.add("on");
       info.innerHTML=`<b>${esc(t.dataset.n)}</b> · HQ ${esc(t.dataset.h)}<br>${esc(t.dataset.i)}`;});});
