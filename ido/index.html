@@ -72,7 +72,8 @@ h3{font-size:16px;font-weight:600}
 .chip{display:inline-flex;align-items:center;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
 .chip.gold{background:var(--gold-soft);color:var(--gold)} .chip.good{background:var(--good-soft);color:var(--good)} .chip.bad{background:var(--bad-soft);color:var(--bad)} .chip.mute{background:var(--bg);color:var(--muted)}
 .bar{height:6px;border-radius:6px;background:var(--line);overflow:hidden} .bar>i{display:block;height:100%;background:var(--gold)}
-.check{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);flex:none;display:grid;place-items:center;font-size:12px;color:#fff}
+button.check{background:transparent;padding:0;cursor:pointer;font-family:inherit;margin:0}
+.check{width:24px;height:22px;border-radius:50%;border:2px solid var(--line);flex:none;display:grid;place-items:center;font-size:12px;color:#fff}
 .check.on{background:var(--good);border-color:var(--good)}
 /* lesson */
 .lesson{font-family:var(--font-read);font-size:18px;line-height:1.7}
@@ -400,7 +401,7 @@ const lessonMeta=id=>{for(const m of MAN.modules){const l=m.lessons.find(x=>x.id
 const allLessonCount=()=>MAN.modules.reduce((a,m)=>a+m.lessons.length,0);
 
 /* ---------- state ---------- */
-const DEF={v:1,done:{},qs:{},weak:[],mocks:[],start:null,last:0,seen:0,cards:{},days:{},newDay:null};
+const DEF={v:1,done:{},qs:{},weak:[],mocks:[],start:null,last:0,seen:0,cards:{},days:{},newDay:null,plan:{},planDone:{}};
 let S=structuredClone(DEF); let N={items:[],last:0};
 try{const a=JSON.parse(localStorage.getItem(LS+"state")||"null");if(a)S=Object.assign(structuredClone(DEF),a);}catch(e){}
 try{const b=JSON.parse(localStorage.getItem(LS+"notes")||"null");if(b)N=b;}catch(e){}
@@ -472,6 +473,22 @@ function dayNum(){const t=new Date();return Math.floor((t.getTime()-t.getTimezon
 function bump(n){S.days=S.days||{};const k=dkey();S.days[k]=(S.days[k]||0)+n;const ks=Object.keys(S.days).sort();if(ks.length>150)ks.slice(0,ks.length-150).forEach(x=>delete S.days[x]);}
 function todayPts(){return (S.days||{})[dkey()]||0;}
 function streak(){let n=0;for(let i=0;i<400;i++){const v=(S.days||{})[dkey(new Date(Date.now()-i*DAY))]||0;if(v>=GOAL)n++;else if(i===0)continue;else break;}return n;}
+function planStreak(){let n=0;for(let i=0;i<400;i++){const k=dkey(new Date(Date.now()-i*DAY));if((S.planDone||{})[k])n++;else if(i===0)continue;else break;}return n;}
+function planItems(ti){
+  const e=MAN.calendar[ti]; const k=dkey(); const P=(S.plan||{})[k]||{}; const out=[];
+  const mockToday=(S.mocks||[]).some(m=>dkey(new Date(m.ts))===k);
+  if(e.core)out.push({k:"core",lid:e.core,done:!!S.done[e.core]});
+  if(e.side)out.push({k:"side",lid:e.side,done:!!S.done[e.side]});
+  if(e.side_task)out.push({k:"st",done:!!P.st});
+  if(e.mod)out.push({k:"rv",done:!!P.rv});
+  if(e.task)out.push({k:"tk",done:!!P.tk||(e.t==="mock"&&mockToday)});
+  if(ti>0)out.push({k:"rc",done:!!P.rc});
+  return out;
+}
+function setPlan(key,val){const k=dkey();S.plan=S.plan||{};const P=S.plan[k]=S.plan[k]||{};if(val===undefined)val=!P[key];if(val)P[key]=1;else delete P[key];
+  const ks=Object.keys(S.plan).sort();if(ks.length>60)ks.slice(0,ks.length-60).forEach(x=>delete S.plan[x]);persist("s");}
+function syncPlanDone(){const ti=todayIdx();if(ti<0||ti>=MAN.calendar.length)return null;const it=planItems(ti);const d=it.filter(x=>x.done).length;
+  S.planDone=S.planDone||{};const k=dkey();if(d===it.length&&!S.planDone[k]){S.planDone[k]=1;persist("s");}return {d,t:it.length};}
 function allCards(){const out=[];for(const lid in S.done){const r=LIDX[lid];if(!r||r.l.paper)continue;(r.l.facts||[]).forEach((f,i)=>out.push({id:lid+"f"+i,lid,f:f[0],b:f[1]}));(r.l.cards||[]).forEach((c,i)=>out.push({id:lid+"c"+i,lid,f:c[0],b:c[1]}));}return out;}
 function deck(){const today=dayNum();const st=S.cards||{};const all=allCards();const due=all.filter(c=>st[c.id]&&st[c.id].d<=today);const nt=(S.newDay&&S.newDay.d===today)?S.newDay.n:0;const fresh=all.filter(c=>!st[c.id]).slice(0,Math.max(0,15-nt));return {due,fresh,total:all.length,learned:Object.keys(st).length};}
 function rateCard(c,r){const today=dayNum();S.cards=S.cards||{};const old=S.cards[c.id];let i=old?old.i:0;
@@ -529,13 +546,14 @@ function viewHome(){
   else if(ti>=cal.length){todayHtml=`<div class="eyebrow">Plan complete</div><h2 style="margin:4px 0 8px">Keep taking full mocks</h2><a class="btn primary" href="#mock">Start a mock</a>`;}
   else{
     const e=cal[ti]; const d=new Date(startDate().getTime()+ti*DAY);
-    const items=[];
-    if(e.core){const lm=lessonMeta(e.core);const ok=!!LIDX[e.core];items.push(`<a class="li" href="${ok?"#lesson-"+e.core:"#module-"+lm.m.id}"><span class="check ${S.done[e.core]?"on":""}">${S.done[e.core]?"✓":""}</span><span class="grow"><span class="small muted">${esc(lm.m.short)} · 75 min</span><br><span class="t">${esc(lm.l.title)}</span></span>${ok?"":'<span class="chip mute">Coming soon</span>'}</a>`);}
-    if(e.side){const lm=lessonMeta(e.side);const ok=!!LIDX[e.side];items.push(`<a class="li" href="${ok?"#lesson-"+e.side:"#module-"+lm.m.id}"><span class="check ${S.done[e.side]?"on":""}">${S.done[e.side]?"✓":""}</span><span class="grow"><span class="small muted">${esc(lm.m.short)} · 30 min</span><br><span class="t">${esc(lm.l.title)}</span></span>${ok?"":'<span class="chip mute">Coming soon</span>'}</a>`);}
-    if(e.side_task){const pp=/2019/.test(e.side_task)&&PYQ;items.push(`<${pp?'a href="#quiz-pps-y2019"':"div"} class="li"><span class="check"></span><span class="grow"><span class="small muted">Practice · 30 min</span><br><span class="t">${esc(e.side_task.replace(" (Past papers)",""))}</span></span>${pp?'<span class="muted">›</span>':""}</${pp?"a":"div"}>`);}
-    if(e.mod){const m=modById(e.mod);items.push(`<a class="li" href="#module-${m.id}"><span class="check"></span><span class="grow"><span class="small muted">Revision</span><br><span class="t">${esc(m.title)}</span></span></a>`);}
-    if(e.task)items.push(`<${e.t==="mock"?'a href="#mock"':"div"} class="li"><span class="check"></span><span class="grow"><span class="small muted">${e.t==="mock"?"Mock test":"Task"}</span><br><span class="t">${esc(e.task)}</span></span></${e.t==="mock"?"a":"div"}>`);
-    items.push(`<div class="li"><span class="check"></span><span class="grow"><span class="small muted">15 min</span><br><span class="t">Revise yesterday's recap</span></span></div>`);
+    const items=[]; const PI=Object.fromEntries(planItems(ti).map(x=>[x.k,x]));
+    const ck=(k)=>`<button class="check ${PI[k]&&PI[k].done?"on":""}" data-pk="${k}" aria-label="Mark as done">${PI[k]&&PI[k].done?"✓":""}</button>`;
+    if(e.core){const lm=lessonMeta(e.core);const ok=!!LIDX[e.core];items.push(`<a class="li" href="${ok?"#lesson-"+e.core:"#module-"+lm.m.id}">${ck("core")}<span class="grow"><span class="small muted">${esc(lm.m.short)} · 75 min</span><br><span class="t">${esc(lm.l.title)}</span></span>${ok?"":'<span class="chip mute">Coming soon</span>'}</a>`);}
+    if(e.side){const lm=lessonMeta(e.side);const ok=!!LIDX[e.side];items.push(`<a class="li" href="${ok?"#lesson-"+e.side:"#module-"+lm.m.id}">${ck("side")}<span class="grow"><span class="small muted">${esc(lm.m.short)} · 30 min</span><br><span class="t">${esc(lm.l.title)}</span></span>${ok?"":'<span class="chip mute">Coming soon</span>'}</a>`);}
+    if(e.side_task){const pp=/2019/.test(e.side_task)&&PYQ;items.push(`<${pp?'a href="#quiz-pps-y2019"':"div"} class="li">${ck("st")}<span class="grow"><span class="small muted">Practice · 30 min${pp?" · ticks itself when you finish":""}</span><br><span class="t">${esc(e.side_task.replace(" (Past papers)",""))}</span></span>${pp?'<span class="muted">›</span>':""}</${pp?"a":"div"}>`);}
+    if(e.mod){const m=modById(e.mod);items.push(`<a class="li" href="#module-${m.id}">${ck("rv")}<span class="grow"><span class="small muted">Revision</span><br><span class="t">${esc(m.title)}</span></span></a>`);}
+    if(e.task)items.push(`<${e.t==="mock"?'a href="#mock"':"div"} class="li">${ck("tk")}<span class="grow"><span class="small muted">${e.t==="mock"?"Mock test · ticks itself when you submit":"Task"}</span><br><span class="t">${esc(e.task)}</span></span></${e.t==="mock"?"a":"div"}>`);
+    if(ti>0)items.push(`<div class="li">${ck("rc")}<span class="grow"><span class="small muted">15 min · tap the circle when done</span><br><span class="t">Revise yesterday's recap</span></span></div>`);
     todayHtml=`<div class="row" style="justify-content:space-between"><div class="eyebrow">Today · Week ${e.w} · Day ${ti+1} of ${cal.length}${MAN.phases&&e.p?" · "+esc(MAN.phases[e.p]):""}</div><span class="small muted">${fmtDate(d)}</span></div><div class="list" style="margin-top:10px">${items.join("")}</div>`;
   }
   const order=[];MAN.calendar.forEach(e=>{[e.core,e.side].forEach(x=>{if(x&&!order.includes(x))order.push(x);});});
@@ -546,9 +564,13 @@ function viewHome(){
     ${news.length?`<a class="card" href="#more" style="text-decoration:none;color:var(--ink);border-color:var(--accent);display:flex;align-items:center;gap:12px"><span style="flex:1;min-width:0"><span class="eyebrow" style="color:var(--accent)">What's new</span><br><span class="small">${esc(news[0].items[0])}</span></span><span class="small" style="color:var(--accent);white-space:nowrap">See all ›</span></a>`:""}
     <section class="card today">${todayHtml}</section>
     ${nl?`<section class="card"><div class="eyebrow">Continue learning</div><h3 style="margin:6px 0 4px">${esc(nl.l.title)}</h3><p class="small muted" style="margin:0 0 10px">${esc(nl.m.title)}</p><a class="btn primary" href="#lesson-${nextId}">Open lesson</a></section>`:""}
-    ${(()=>{const dk=deck();const n=dk.due.length+dk.fresh.length;const pts=todayPts();const st=streak();return `<section class="card row" style="gap:16px;align-items:center">${ringSvg(pts/GOAL)}<div class="grow" style="flex:1;min-width:0"><div class="eyebrow">Daily goal</div><div style="font-weight:700;font-size:17px">${pts>=GOAL?"Goal reached today":`${Math.max(0,GOAL-pts)} points to go`}</div><div class="small muted">Streak: ${st} day${st===1?"":"s"} · questions and flashcards 1 point, lessons 10</div></div></section>
+    ${(()=>{const dk=deck();const n=dk.due.length+dk.fresh.length;const pts=todayPts();const pl=syncPlanDone();const st=pl?planStreak():streak();const frac=pl?pl.d/pl.t:pts/GOAL;return `<section class="card row" style="gap:16px;align-items:center">${ringSvg(frac)}<div class="grow" style="flex:1;min-width:0"><div class="eyebrow">Today's plan</div><div style="font-weight:700;font-size:17px">${pl?(pl.d>=pl.t?"Today's plan complete":`${pl.d} of ${pl.t} done`):(pts>=GOAL?"Goal reached today":`${Math.max(0,GOAL-pts)} points to go`)}</div><div class="small muted">Points today: ${pts} · Streak: ${st} day${st===1?"":"s"}${pl?" with the full plan done":""}</div></div></section>
     <a class="card" href="#cards" style="text-decoration:none;color:var(--ink);display:flex;align-items:center;gap:12px"><span style="flex:1"><span class="eyebrow">Flashcards</span><br><b style="font-size:17px">${n?`${n} card${n>1?"s":""} to review today`:dk.total?"All caught up for today":"Your deck is empty"}</b><br><span class="small muted">${dk.total?`${dk.learned} of ${dk.total} facts learned`:"Finish a lesson to add its key facts"}</span></span><span class="btn sm ${n?"primary":""}">${n?"Start":"Open"}</span></a>`;})()}
   </div>`;
+  app.querySelectorAll("[data-pk]").forEach(b=>b.onclick=(ev)=>{ev.preventDefault();ev.stopPropagation();const k=b.dataset.pk;const e=MAN.calendar[todayIdx()];
+    if(k==="core"||k==="side"){const id=e[k];if(S.done[id])delete S.done[id];else{S.done[id]=Date.now();bump(10);}persist("s");}
+    else setPlan(k);
+    viewHome();});
 }
 
 const PROMPT="Continue my IDO course: build the next item on the to-do list and update the study app.";
@@ -699,7 +721,7 @@ function viewQuiz(key,soft){
     if(!it.gen){recordAnswer(it.id,ok);persist("s");}
     viewQuiz(key,true);
   });
-  const nx=$("#qnext"); if(nx)nx.onclick=()=>{if(QZ.i+1<QZ.items.length){QZ.i++;viewQuiz(key,true);}else{QZ.finished=true;quizSummary();}window.scrollTo(0,0);};
+  const nx=$("#qnext"); if(nx)nx.onclick=()=>{if(QZ.i+1<QZ.items.length){QZ.i++;viewQuiz(key,true);}else{QZ.finished=true;if(/^pps?-/.test(QZ.key))setPlan("st",true);quizSummary();}window.scrollTo(0,0);};
   const ex=$("#qexpl"); if(ex)ex.onclick=()=>{const L=lm?lm.l:null;if(!L)return;openAsk({lesson:L,extra:`${q.q}\nOptions: ${q.o.map((o,j)=>LETTERS[j]+") "+o).join("; ")}\nCorrect: ${LETTERS[q.a]}. Learner chose: ${LETTERS[a]}.`,prefill:a===q.a?"Explain why the other options are wrong.":"Why is my answer wrong? Help me remember the right one."});};
 }
 function quizSummary(){
