@@ -654,7 +654,7 @@ function render(soft){
   if(v==="paper")return viewPaper(a);
   viewHome(); bindHome();
 }
-window.addEventListener("hashchange",()=>{render();window.scrollTo(0,0);});
+window.addEventListener("hashchange",()=>{try{stopSay();}catch(e){}render();window.scrollTo(0,0);});
 
 /* ---------- views ---------- */
 function planEntryLabel(e){
@@ -779,10 +779,25 @@ function viewLesson(id){
   $("#fab").hidden=false; $("#fab").onclick=()=>openAsk({lesson:l});
   setupListen(l);
 }
+/* speech: claude.ai voice where available, otherwise the browser's own voice */
+let SPK=0;
+function speechText(t){return String(t||"").replace(/\bsyn\b/g,"synonym").replace(/\bant\b/g,"antonym").replace(/·/g,",").replace(/→/g," to ").replace(/\s+/g," ").trim();}
+async function say(text){const my=++SPK;stopSay(true);const t=speechText(text);if(!t)return;
+  try{if(!TTS&&window.claude&&claude.use)TTS=await claude.use("tts");}catch(e){TTS=null;}
+  if(my!==SPK)return;
+  if(TTS){try{await TTS.speak([{text:t.slice(0,1800),language:"en"}]);return;}catch(e){}}
+  if(window.speechSynthesis){const u=new SpeechSynthesisUtterance(t);const v=speechSynthesis.getVoices();u.voice=v.find(x=>/en-IN/i.test(x.lang))||v.find(x=>/^en/i.test(x.lang))||null;u.rate=0.95;speechSynthesis.speak(u);}}
+function stopSay(keep){if(!keep)SPK++;try{if(TTS)TTS.stop();}catch(e){}try{if(window.speechSynthesis)speechSynthesis.cancel();}catch(e){}}
 async function setupListen(l){
   const b=$("#listen"); if(!b)return;
   if(!TTS&&window.claude&&claude.use){try{TTS=await claude.use("tts");}catch(e){TTS=null;}}
-  if(!TTS||!document.body.contains(b))return;
+  if(!document.body.contains(b))return;
+  if(!TTS){if(!window.speechSynthesis)return;b.hidden=false;let on=false;
+    b.onclick=()=>{if(on){speechSynthesis.cancel();on=false;b.textContent="Listen";return;}
+      const t=l.sections.map(s=>s.h+". "+stripHtml(s.html)).join(" ");const parts=t.match(/[^.!?]+[.!?]*/g)||[t];on=true;b.textContent="Stop listening";
+      const v=speechSynthesis.getVoices();const voice=v.find(x=>/en-IN/i.test(x.lang))||v.find(x=>/^en/i.test(x.lang))||null;
+      parts.forEach((p,i)=>{const u=new SpeechSynthesisUtterance(p);u.voice=voice;u.rate=0.95;if(i===parts.length-1)u.onend=()=>{on=false;if(document.body.contains(b))b.textContent="Listen";};speechSynthesis.speak(u);});};
+    return;}
   b.hidden=false; let speaking=false;
   b.onclick=async()=>{
     if(speaking){try{TTS.stop();}catch(e){}speaking=false;b.textContent="Listen";return;}
@@ -1511,11 +1526,15 @@ function viewCards(){
   const nxt={again:"today",hard:lab(Math.max(1,Math.round(i*1.2))),good:lab(i<1?1:Math.round(i*2.3)),easy:lab(i<1?4:Math.round(i*3.2))};
   app.innerHTML=`<div class="stack">
     <div class="row" style="justify-content:space-between"><a class="small" href="#practice">‹ Practice</a><span class="small muted">${CQ.q.length} left · ${st?"review":"new"}</span></div>
+    <div class="row" style="justify-content:space-between;align-items:center"><button class="btn sm" id="spk" aria-label="Read aloud">🔊 Read aloud</button><label class="small row" style="gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="autospk" ${S.cardSpeak?"checked":""}> Auto-read every card</label></div>
     <div class="fc" id="fc"><div class="small muted">${esc(r?r.l.title:"")}</div><div class="front">${esc(c.f)}</div>${CQ.show?`<div class="back">${esc(c.b)}</div>`:`<div class="small muted">Say the answer, then tap to check</div>`}</div>
     ${CQ.show?`<div class="rate"><button class="btn" data-r="again">Again<small>${nxt.again}</small></button><button class="btn" data-r="hard">Hard<small>${nxt.hard}</small></button><button class="btn" data-r="good">Good<small>${nxt.good}</small></button><button class="btn primary" data-r="easy">Easy<small>${nxt.easy}</small></button></div>`:`<button class="btn primary" id="reveal">Show answer</button>`}
   </div>`;
   const rv=()=>{CQ.show=true;viewCards();};
   $("#fc").onclick=()=>{if(!CQ.show)rv();}; const b=$("#reveal"); if(b)b.onclick=rv;
+  $("#spk").onclick=()=>say(CQ.show?c.f+". "+c.b:c.f);
+  $("#autospk").onchange=e=>{S.cardSpeak=e.target.checked?1:0;persist("s");if(S.cardSpeak)say(CQ.show?c.b:c.f);else stopSay();};
+  if(S.cardSpeak)say(CQ.show?c.b:c.f);
   app.querySelectorAll("[data-r]").forEach(x=>x.onclick=()=>{const r2=x.dataset.r;rateCard(c,r2);CQ.q.shift();if(r2==="again")CQ.q.push(c);CQ.done++;CQ.show=false;viewCards();});
 }
 function viewNumbers(mid){
