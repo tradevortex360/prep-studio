@@ -111,7 +111,7 @@ window.PREP_ENV=(function(){
   }
   function initCloud(){
     if(!CFG.clientId){setSync("","Saved on this device");return;}
-    const h=document.querySelector("header.top"); if(h&&!btn()){const b=document.createElement("button");b.className="btn sm";b.id="drivebtn";b.onclick=connect;h.insertBefore(b,document.getElementById("updbtn"));}
+    const h=document.querySelector("header.top"); if(h&&!btn()){const b=document.createElement("button");b.className="btn sm";b.id="drivebtn";b.onclick=connect;h.appendChild(b);}
     setSync("","Saved on this device");
     setBtn(localStorage.getItem(LSK+"drive")?"Sync to Drive":"Connect Google Drive",true);
   }

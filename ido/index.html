@@ -29,7 +29,7 @@
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:16px;line-height:1.55}
-body{padding-bottom:96px}
+body{padding-bottom:110px}
 a{color:var(--accent)}
 button{font:inherit;color:inherit;cursor:pointer}
 button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -106,7 +106,7 @@ h3{font-size:16px;font-weight:600}
 .qnav button.cur{outline:2px solid var(--gold)}
 .timer{font-variant-numeric:tabular-nums;font-weight:700}
 /* ask sheet */
-.fab{position:fixed;right:16px;bottom:16px;z-index:20;box-shadow:0 6px 20px rgba(0,0,0,.18);border-radius:999px;padding:0 18px;min-height:48px}
+.fab{position:fixed;right:16px;bottom:80px;z-index:20;box-shadow:0 6px 20px rgba(0,0,0,.18);border-radius:999px;padding:0 18px;min-height:48px}
 .sheet-bg{position:fixed;inset:0;background:rgba(10,15,25,.45);z-index:30;display:none}
 .sheet{position:fixed;left:0;right:0;bottom:0;z-index:31;max-width:760px;margin:0 auto;background:var(--surface);border-radius:16px 16px 0 0;border:1px solid var(--line);display:none;flex-direction:column;max-height:82vh}
 .sheet.open,.sheet-bg.open{display:flex}
@@ -129,6 +129,13 @@ input[type=date]{font:inherit;padding:6px 10px;border:1px solid var(--line);bord
 .day.now{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold)}
 .day.t-mock{background:var(--accent-soft)} .day.t-revise{background:var(--gold-soft)}
 .day.done{opacity:.6}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav.tabs .in{max-width:760px;margin:0 auto;display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
+nav.tabs a{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px 9px;text-decoration:none;color:var(--muted);font-size:12px;font-weight:600}
+nav.tabs a svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+nav.tabs a.on{color:var(--accent)}
+nav.tabs a .badge{position:absolute;margin-left:18px;margin-top:-2px;min-width:16px;height:16px;border-radius:8px;background:var(--bad);color:#fff;font-size:10px;display:grid;place-items:center;padding:0 4px}
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
 @media (prefers-reduced-motion:no-preference){.li,.btn,.opt{transition:background-color .15s,border-color .15s}}
 </style>
 <script>
@@ -245,7 +252,7 @@ window.PREP_ENV=(function(){
   }
   function initCloud(){
     if(!CFG.clientId){setSync("","Saved on this device");return;}
-    const h=document.querySelector("header.top"); if(h&&!btn()){const b=document.createElement("button");b.className="btn sm";b.id="drivebtn";b.onclick=connect;h.insertBefore(b,document.getElementById("updbtn"));}
+    const h=document.querySelector("header.top"); if(h&&!btn()){const b=document.createElement("button");b.className="btn sm";b.id="drivebtn";b.onclick=connect;h.appendChild(b);}
     setSync("","Saved on this device");
     setBtn(localStorage.getItem(LSK+"drive")?"Sync to Drive":"Connect Google Drive",true);
   }
@@ -260,10 +267,16 @@ window.PREP_ENV=(function(){
 <header class="top">
   <a class="brand" href="#home">IDO <span>prep</span></a>
   <div class="sync" id="sync"><i class="dot" id="syncdot"></i><span id="synctxt">Saved on this device</span></div>
-  <button class="btn sm" id="updbtn" title="Fetch the latest lessons, papers and plan">Check for updates</button>
 </header>
 <div class="wrap" id="toast" style="padding-top:0;padding-bottom:0" hidden></div>
 <main class="wrap" id="app"><p class="muted">Loading your course…</p></main>
+<nav class="tabs" aria-label="Sections"><div class="in">
+  <a href="#home" data-tab="today"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Today</a>
+  <a href="#learn" data-tab="learn"><svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M8 7h7"/></svg>Learn</a>
+  <a href="#practice" data-tab="practice"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>Practice</a>
+  <a href="#progress" data-tab="progress"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Progress</a>
+  <a href="#more" data-tab="more"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>More</a>
+</div></nav>
 
 <button class="btn primary fab" id="fab" hidden>Ask a doubt</button>
 <div class="sheet-bg" id="sheetbg"></div>
@@ -398,6 +411,8 @@ function render(soft){
   const {v,a}=parseHash();
   if(MOCK&&MOCK.timer&&v!=="mock"){/* keep timer running */}
   CUR_LESSON=null; $("#fab").hidden=true;
+  const TAB={home:"today",learn:"learn",module:"learn",lesson:"learn",practice:"practice",quiz:"practice",mock:"practice",papers:"practice",paper:"practice",weak:"practice",progress:"progress",plan:"progress",more:"more",notes:"more",data:"more"};
+  const cur=TAB[v]||"today"; document.querySelectorAll("nav.tabs a").forEach(a=>{a.classList.toggle("on",a.dataset.tab===cur);if(a.dataset.tab===cur)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current");});
   if(v==="module")return viewModule(a);
   if(v==="lesson")return viewLesson(a);
   if(v==="quiz")return viewQuiz(a,soft);
@@ -405,6 +420,10 @@ function render(soft){
   if(v==="weak")return viewWeak();
   if(v==="notes")return viewNotes();
   if(v==="plan")return viewPlan();
+  if(v==="learn")return viewLearn();
+  if(v==="practice")return viewPractice();
+  if(v==="progress")return viewProgress();
+  if(v==="more")return viewMore();
   if(v==="papers")return viewPapers();
   if(v==="data")return viewData();
   if(v==="paper")return viewPaper(a);
@@ -429,37 +448,24 @@ function viewHome(){
     const items=[];
     if(e.core){const lm=lessonMeta(e.core);const ok=!!LIDX[e.core];items.push(`<a class="li" href="${ok?"#lesson-"+e.core:"#module-"+lm.m.id}"><span class="check ${S.done[e.core]?"on":""}">${S.done[e.core]?"✓":""}</span><span class="grow"><span class="small muted">${esc(lm.m.short)} · 75 min</span><br><span class="t">${esc(lm.l.title)}</span></span>${ok?"":'<span class="chip mute">Coming soon</span>'}</a>`);}
     if(e.side){const lm=lessonMeta(e.side);const ok=!!LIDX[e.side];items.push(`<a class="li" href="${ok?"#lesson-"+e.side:"#module-"+lm.m.id}"><span class="check ${S.done[e.side]?"on":""}">${S.done[e.side]?"✓":""}</span><span class="grow"><span class="small muted">${esc(lm.m.short)} · 30 min</span><br><span class="t">${esc(lm.l.title)}</span></span>${ok?"":'<span class="chip mute">Coming soon</span>'}</a>`);}
-    if(e.side_task)items.push(`<div class="li"><span class="check"></span><span class="grow"><span class="small muted">Practice · 30 min</span><br><span class="t">${esc(e.side_task)}</span></span></div>`);
+    if(e.side_task){const pp=/2019/.test(e.side_task)&&PYQ;items.push(`<${pp?'a href="#quiz-pps-y2019"':"div"} class="li"><span class="check"></span><span class="grow"><span class="small muted">Practice · 30 min</span><br><span class="t">${esc(e.side_task.replace(" (Past papers)",""))}</span></span>${pp?'<span class="muted">›</span>':""}</${pp?"a":"div"}>`);}
     if(e.mod){const m=modById(e.mod);items.push(`<a class="li" href="#module-${m.id}"><span class="check"></span><span class="grow"><span class="small muted">Revision</span><br><span class="t">${esc(m.title)}</span></span></a>`);}
     if(e.task)items.push(`<${e.t==="mock"?'a href="#mock"':"div"} class="li"><span class="check"></span><span class="grow"><span class="small muted">${e.t==="mock"?"Mock test":"Task"}</span><br><span class="t">${esc(e.task)}</span></span></${e.t==="mock"?"a":"div"}>`);
     items.push(`<div class="li"><span class="check"></span><span class="grow"><span class="small muted">15 min</span><br><span class="t">Revise yesterday's recap</span></span></div>`);
     todayHtml=`<div class="row" style="justify-content:space-between"><div class="eyebrow">Today · Week ${e.w} · Day ${ti+1} of ${cal.length}${MAN.phases&&e.p?" · "+esc(MAN.phases[e.p]):""}</div><span class="small muted">${fmtDate(d)}</span></div><div class="list" style="margin-top:10px">${items.join("")}</div>`;
   }
-  const mods=MAN.modules.map(m=>{const p=moduleProgress(m);const avail=!!MODS[m.id];return `<a class="li" href="#module-${m.id}"><span class="grow"><span class="t">${esc(m.title)}</span><div class="row small muted" style="gap:8px;margin-top:4px"><span>${m.marks} marks</span><span>·</span><span>${p.d}/${p.t} lessons</span>${avail?"":'<span class="chip mute">Coming soon</span>'}</div><div class="bar" style="margin-top:8px"><i style="width:${Math.round(100*p.d/p.t)}%"></i></div></span><span class="muted">›</span></a>`;}).join("");
-  const best=S.mocks.length?Math.max(...S.mocks.map(x=>x.pct)):null;
+  const order=[];MAN.calendar.forEach(e=>{[e.core,e.side].forEach(x=>{if(x&&!order.includes(x))order.push(x);});});
+  const nextId=order.find(id=>LIDX[id]&&!S.done[id]);
+  const nl=nextId?lessonMeta(nextId):null;
   const news=(MAN.changelog||[]).filter(c=>c.v>(S.seen||0));
-  const newsHtml=news.length?`<section class="card" style="border-color:var(--accent)"><div class="row" style="justify-content:space-between"><div class="eyebrow" style="color:var(--accent)">What's new</div><button class="btn sm ghost" id="seen">Got it</button></div>${news.map(c=>`<div class="small muted" style="margin-top:8px">${esc(c.date)}</div><ul style="margin:4px 0 0;padding-left:20px">${c.items.map(i=>`<li>${esc(i)}</li>`).join("")}</ul>`).join("")}</section>`:"";
   app.innerHTML=`<div class="stack">
-    ${newsHtml}
+    ${news.length?`<a class="card" href="#more" style="text-decoration:none;color:var(--ink);border-color:var(--accent);display:flex;align-items:center;gap:12px"><span style="flex:1;min-width:0"><span class="eyebrow" style="color:var(--accent)">What's new</span><br><span class="small">${esc(news[0].items[0])}</span></span><span class="small" style="color:var(--accent);white-space:nowrap">See all ›</span></a>`:""}
     <section class="card today">${todayHtml}</section>
-    ${buildCard()}
-    <section class="grid2 grid4">
-      <div class="tile"><div class="k">Lessons done</div><div class="v">${done}<span class="muted small">/${total}</span></div></div>
-      <div class="tile"><div class="k">Quiz accuracy</div><div class="v">${st.acc==null?"–":st.acc+"%"}</div></div>
-      <div class="tile"><div class="k">Questions answered</div><div class="v">${st.c+st.w}</div></div>
-      <div class="tile"><div class="k">Best mock</div><div class="v">${best==null?"–":best+"%"}</div></div>
+    ${nl?`<section class="card"><div class="eyebrow">Continue learning</div><h3 style="margin:6px 0 4px">${esc(nl.l.title)}</h3><p class="small muted" style="margin:0 0 10px">${esc(nl.m.title)}</p><a class="btn primary" href="#lesson-${nextId}">Open lesson</a></section>`:""}
+    <section class="grid2">
+      <a class="tile" href="#progress" style="text-decoration:none;color:var(--ink)"><div class="k">Lessons done</div><div class="v">${done}<span class="muted small">/${total}</span></div></a>
+      <a class="tile" href="#weak" style="text-decoration:none;color:var(--ink)"><div class="k">Weak questions to revise</div><div class="v">${S.weak.length}</div></a>
     </section>
-    <section class="row">
-      <a class="btn primary" href="#mock">Take a mock test</a>
-      <a class="btn" href="#weak">Weak areas <span class="chip ${S.weak.length?"bad":"mute"}">${S.weak.length}</span></a>
-      <a class="btn" href="#notes">My notes <span class="chip mute">${N.items.length}</span></a>
-      <a class="btn" href="#papers">Past papers</a>
-      <a class="btn" href="#data">Backup and restore</a>
-      <a class="btn" href="#plan">Study plan</a>
-    </section>
-    <h2 style="margin-top:8px">Syllabus</h2>
-    <div class="list">${mods}</div>
-    <p class="small muted">Expected exam: mid to late January 2027 (date not yet announced). ${MAN.exam.questions} objective questions · ${MAN.exam.minutes} minutes · −${MAN.exam.negative} per wrong answer · interview ${MAN.exam.interview} marks. Content updated ${esc(MAN.updated)}.</p>
   </div>`;
 }
 
@@ -470,11 +476,11 @@ function buildCard(){
   const n=rm[0]; const [y,mo,d]=n.due.split("-").map(Number); const due=new Date(y,mo-1,d);
   const late=due<new Date(new Date().toDateString());
   return `<section class="card"><div class="row" style="justify-content:space-between"><div class="eyebrow">Next on the build list</div><span class="chip ${late?"bad":"gold"}">${late?"Overdue · ":"Due "}${fmtDate(due)}</span></div>
-  <h3 style="margin:6px 0 4px">${esc(n.item)}</h3><p class="small muted" style="margin:0 0 10px">${rm.length-1} more after this. Tap the button to open a Claude chat that builds it, then tap Check for updates here when it's done.</p>
+  <h3 style="margin:6px 0 4px">${esc(n.item)}</h3><p class="small muted" style="margin:0 0 10px">${rm.length-1} more after this. Tap the button to open a Claude chat that builds it, then tap Check for updates on this page when it's done.</p>
   <div class="row"><a class="btn primary" href="https://claude.ai/new?q=${encodeURIComponent(PROMPT)}" target="_blank" rel="noopener">Continue my IDO course</a><button class="btn" id="copyprompt">Copy the request</button></div>
   <p class="small muted" style="margin:8px 0 0" id="copymsg">If the chat opens empty, paste the copied request: “${esc(PROMPT)}”</p></section>`;
 }
-function bindHome(){const cp=$("#copyprompt");if(cp)cp.onclick=async()=>{try{await navigator.clipboard.writeText(PROMPT);cp.textContent="Copied ✓";}catch(e){cp.textContent="Copy not allowed here";}};const b=$("#seen");if(b)b.onclick=()=>{S.seen=Math.max(...MAN.changelog.map(c=>c.v));persist("s");viewHome();};}
+function bindHome(){}
 function viewModule(id){
   const m=modById(id); if(!m){location.hash="home";return;}
   const avail=MODS[m.id]; const p=moduleProgress(m);
@@ -483,7 +489,7 @@ function viewModule(id){
       :`<div class="li"><span class="check"></span><span class="grow"><span class="small muted">Lesson ${i+1}</span><br><span class="t">${esc(l.title)}</span></span><span class="chip mute">Coming soon</span></div>`;}).join("");
   const qn=avail?avail.lessons.reduce((a,l)=>a+l.mcqs.length,0):0;
   app.innerHTML=`<div class="stack">
-    <a href="#home" class="small">‹ Home</a>
+    <a href="#learn" class="small">‹ Syllabus</a>
     <div><div class="eyebrow">${m.marks} marks in the exam</div><h1>${esc(m.title)}</h1><p class="muted" style="margin:6px 0 0">${p.d} of ${p.t} lessons done${avail?` · ${qn} practice questions`:""}</p></div>
     ${avail?`<div class="row"><a class="btn primary" href="#quiz-mod-${m.id}">Practise the whole module</a></div>`:`<p class="notice">This module is being written. Its lessons will appear here as they're added.</p>`}
     <div class="list">${rows}</div>
@@ -652,7 +658,7 @@ function viewMock(soft){
   const sizes=[25,50,100].map(n=>Math.min(n,pool)).filter((v,i,a)=>a.indexOf(v)===i);
   const hist=S.mocks.slice(-8).reverse();
   app.innerHTML=`<div class="stack">
-    <a class="small" href="#home">‹ Home</a>
+    <a class="small" href="#practice">‹ Practice</a>
     <div><div class="eyebrow">Exam conditions</div><h1>Mock test</h1><p class="muted" style="margin:6px 0 0">Timed at the real pace (54 seconds per question), with −${MAN.exam.negative} for each wrong answer. You see answers only at the end.</p></div>
     <p class="notice">The question bank has ${pool} questions: the modules written so far plus past-paper questions that fit the 2026 syllabus. Full 100-question mocks will cover all seven sections as modules are added.</p>
     <div class="row">${sizes.map(n=>`<button class="btn ${n===sizes[sizes.length-1]?"primary":""}" data-n="${n}">${n} questions · ${Math.round(n*0.9)} min</button>`).join("")}</div>
@@ -709,7 +715,7 @@ function mockResult(){
   const rows=Object.entries(R.byMod).map(([mid,b])=>`<tr><td>${esc(SECNAME(mid))}</td><td>${b.c}</td><td>${b.w}</td><td>${b.u}</td><td>${Math.round((b.c-MAN.exam.negative*b.w)*100)/100} / ${b.t}</td></tr>`).join("");
   const review=MOCK.ids.map((id,i)=>{const q=QIDX[id].q;const a=MOCK.ans[i];if(a===q.a)return"";return `<div class="card stack" style="gap:6px"><b>${i+1}. ${esc(q.q)}</b><div class="small">${a==null?'<span class="chip mute">Skipped</span>':`Your answer: <span class="chip bad">${LETTERS[a]}) ${esc(q.o[a])}</span>`}</div><div class="small">Correct: <span class="chip good">${LETTERS[q.a]}) ${esc(q.o[q.a])}</span></div><div class="expl small">${esc(q.e)}</div></div>`;}).join("");
   app.innerHTML=`<div class="stack">
-    <a class="small" href="#home">‹ Home</a>
+    <a class="small" href="#practice">‹ Practice</a>
     <div class="card"><div class="eyebrow">Mock result</div><h1 style="margin-top:4px">${R.score} / ${R.total}</h1><p class="muted" style="margin:6px 0 0">${R.c} right · ${R.w} wrong (−${Math.round(R.w*MAN.exam.negative*100)/100}) · ${R.u} skipped · ${fmtMs(R.taken)} taken</p></div>
     <div class="card tablewrap"><table class="facts" style="min-width:340px"><tr><td><b>Section</b></td><td><b>Right</b></td><td><b>Wrong</b></td><td><b>Skipped</b></td><td><b>Score</b></td></tr>${rows}</table></div>
     <div class="row"><a class="btn primary" href="#weak">Practise weak areas</a><button class="btn" id="newmock">New mock</button></div>
@@ -723,7 +729,7 @@ function viewWeak(){
   const ids=S.weak.filter(q=>QIDX[q]);
   const byL={};ids.forEach(id=>{const l=QIDX[id].lid;(byL[l]=byL[l]||[]).push(id);});
   app.innerHTML=`<div class="stack">
-    <a class="small" href="#home">‹ Home</a>
+    <a class="small" href="#practice">‹ Practice</a>
     <div><h1>Weak areas</h1><p class="muted" style="margin:6px 0 0">Questions you got wrong. Answer one correctly and it leaves this list.</p></div>
     ${ids.length?`<div class="row"><a class="btn primary" href="#quiz-weak">Practise all ${ids.length}</a></div>
     <div class="list">${Object.entries(byL).map(([lid,arr])=>{const l=LIDX[lid].l;return `<a class="li" href="#${l.paper?"paper":"lesson"}-${lid}"><span class="grow"><span class="t">${esc(l.title)}</span><br><span class="small muted">${l.paper?"Past paper":"Reread this lesson"}</span></span><span class="chip bad">${arr.length}</span></a>`;}).join("")}</div>`
@@ -733,7 +739,7 @@ function viewWeak(){
 function viewNotes(){
   const groups={};N.items.forEach(n=>{(groups[n.lid]=groups[n.lid]||[]).push(n);});
   app.innerHTML=`<div class="stack">
-    <a class="small" href="#home">‹ Home</a>
+    <a class="small" href="#more">‹ More</a>
     <div><h1>My notes</h1><p class="muted" style="margin:6px 0 0">Answers you saved while asking doubts, grouped by lesson.</p></div>
     ${N.items.length?Object.entries(groups).map(([lid,arr])=>{const lm=LIDX[lid];return `<h2>${esc(lm?lm.l.title:lid)}</h2>`+arr.map(n=>`<div class="card stack" style="gap:6px"><div class="small muted">You asked: ${esc(n.q)}</div><div class="msg a">${md(n.a)}</div><div class="row"><a class="btn sm" href="#${lm&&lm.l.paper?"paper":"lesson"}-${lid}">Open</a><button class="btn sm ghost" data-del="${esc(n.id)}">Delete</button></div></div>`).join("");}).join("")
     :`<p class="notice">No notes yet. In any lesson, tap "Ask a doubt", then "Save to notes" on a helpful answer.</p>`}
@@ -745,7 +751,7 @@ function viewPlan(){
   const weeks=[];for(let w=0;w*7<cal.length;w++)weeks.push(cal.slice(w*7,w*7+7));
   const phase=w=>{const ps=[...new Set(weeks[w].map(e=>e.p))];return ps.map(p=>MAN.phases?MAN.phases[p]:"").join(" → ");};
   app.innerHTML=`<div class="stack">
-    <a class="small" href="#home">‹ Home</a>
+    <a class="small" href="#progress">‹ Progress</a>
     <div><h1>Study plan to 31 January</h1><p class="muted" style="margin:6px 0 0">Weeks 1–4: about 3 h a day (specialist lesson + English or arithmetic + 15 min revision), Sunday mocks from Week 2. Weeks 5–6: second pass and 3 mocks a week. Week 7: a mock every day. After 11 Jan: flexible weeks in case the exam is late January.</p></div>
     <div class="card row"><label for="sd" class="small">Start date</label><input type="date" id="sd" value="${esc(S.start||MAN.start)}"><span class="small muted">Change it if you start later; the plan shifts with it.</span></div>
     <div class="row small"><span class="chip">Study</span><span class="chip gold">Revision</span><span class="chip" style="background:var(--accent-soft)">Mock</span></div>
@@ -755,9 +761,9 @@ function viewPlan(){
 }
 
 function viewPapers(){
-  if(!PYQ){app.innerHTML=`<div class="stack"><a class="small" href="#home">‹ Home</a><p class="notice">Past papers couldn't load. Reload to try again.</p></div>`;return;}
+  if(!PYQ){app.innerHTML=`<div class="stack"><a class="small" href="#practice">‹ Practice</a><p class="notice">Past papers couldn't load. Reload to try again.</p></div>`;return;}
   app.innerHTML=`<div class="stack">
-    <a class="small" href="#home">‹ Home</a>
+    <a class="small" href="#practice">‹ Practice</a>
     <div><div class="eyebrow">Real exam questions</div><h1>Past papers</h1></div>
     <div class="list">${PYQ.papers.map(p=>{const rel=p.questions.filter(q=>q.sec!=="gs").length;const done=p.questions.filter(q=>S.qs[q.id]).length;return `<a class="li" href="#paper-${p.id}"><span class="grow"><span class="t">${esc(p.title)}</span><br><span class="small muted">${p.questions.length} questions · ${rel} fit the 2026 syllabus · ${done} attempted</span></span><span class="muted">›</span></a>`;}).join("")}</div>
     <h2>What the papers tell us</h2>
@@ -788,7 +794,7 @@ function viewPaper(id){
 function viewData(){
   const payload=()=>JSON.stringify({app:"prep-studio-ido",v:1,exported:new Date().toISOString(),state:S,notes:N});
   app.innerHTML=`<div class="stack">
-    <a class="small" href="#home">‹ Home</a>
+    <a class="small" href="#more">‹ More</a>
     <div><h1>Backup and restore</h1><p class="muted" style="margin:6px 0 0">Save your progress, weak areas, mock history and notes as a file, or move them between the claude.ai app and the GitHub copy.</p></div>
     <section class="card stack"><h2>Export</h2>
       <p class="small muted" style="margin:0">${Object.keys(S.done).length} lessons done · ${Object.keys(S.qs).length} questions tracked · ${S.mocks.length} mocks · ${N.items.length} notes</p>
@@ -819,15 +825,52 @@ function viewData(){
   };
 }
 
-/* ---------- boot ---------- */
-(async()=>{
-  if(ENV.ready)await ENV.ready;
-  try{await loadContent();}catch(e){app.innerHTML=`<p class="err">Couldn't load the course content. Reload the page to try again.</p>`;return;}
-  render();
-  initCloud();
-})();
-$("#updbtn").onclick=async()=>{
-  const b=$("#updbtn"),t=$("#toast"); const before=MAN?MAN.version||0:0;
+function viewLearn(){
+  const mods=MAN.modules.map(m=>{const p=moduleProgress(m);const avail=!!MODS[m.id];return `<a class="li" href="#module-${m.id}"><span class="grow"><span class="t">${esc(m.title)}</span><div class="row small muted" style="gap:8px;margin-top:4px"><span>${m.marks} marks</span><span>·</span><span>${p.d}/${p.t} lessons done</span>${avail?"":'<span class="chip mute">Coming soon</span>'}</div><div class="bar" style="margin-top:8px"><i style="width:${Math.round(100*p.d/p.t)}%"></i></div></span><span class="muted">›</span></a>`;}).join("");
+  app.innerHTML=`<div class="stack">
+    <div><div class="eyebrow">Syllabus</div><h1>Learn</h1><p class="muted" style="margin:6px 0 0">Seven sections, in the order of the written exam's marks. Tap a section to see its lessons.</p></div>
+    <div class="list">${mods}</div>
+    <p class="small muted">Written exam: ${MAN.exam.questions} objective questions · ${MAN.exam.minutes} minutes · −${MAN.exam.negative} per wrong answer · interview ${MAN.exam.interview} marks. Expected mid to late January 2027.</p>
+  </div>`;
+}
+function viewPractice(){
+  const avail=MAN.modules.filter(m=>MODS[m.id]);
+  const pool=mockPool().length;
+  app.innerHTML=`<div class="stack">
+    <div><div class="eyebrow">Questions and tests</div><h1>Practice</h1></div>
+    <section class="card stack" style="gap:8px"><div class="sec-h"><h2>Mock test</h2><span class="small muted">${pool} questions in the bank</span></div><p class="small muted" style="margin:0">Timed, with −${MAN.exam.negative} for each wrong answer, like the real exam.</p><div class="row"><a class="btn primary" href="#mock">Start a mock test</a></div></section>
+    <section class="stack" style="gap:8px"><h2>Weak areas</h2>
+      <a class="li card" href="#weak" style="border-radius:var(--r)"><span class="grow"><span class="t">Questions you got wrong</span><br><span class="small muted">Answer one correctly and it leaves the list</span></span><span class="chip ${S.weak.length?"bad":"mute"}">${S.weak.length}</span></a></section>
+    <section class="stack" style="gap:8px"><h2>Practise by section</h2>
+      <div class="list">${avail.map(m=>{const n=MODS[m.id].lessons.reduce((a,l)=>a+l.mcqs.length,0);return `<a class="li" href="#quiz-mod-${m.id}"><span class="grow"><span class="t">${esc(m.title)}</span><br><span class="small muted">${n} questions, mixed</span></span><span class="muted">›</span></a>`;}).join("")}</div>
+      <p class="small muted" style="margin:0">Each lesson also has its own questions at the end of the lesson.</p></section>
+    ${PYQ?`<section class="stack" style="gap:8px"><h2>Past papers</h2><div class="list">${PYQ.papers.map(p=>`<a class="li" href="#paper-${p.id}"><span class="grow"><span class="t">${esc(p.title)}</span><br><span class="small muted">${p.questions.length} questions</span></span><span class="muted">›</span></a>`).join("")}<a class="li" href="#papers"><span class="grow"><span class="t">What the papers tell us</span><br><span class="small muted">Pattern analysis and what it means for you</span></span><span class="muted">›</span></a></div></section>`:""}
+  </div>`;
+}
+function viewProgress(){
+  const st=stats(); const total=allLessonCount(); const done=Object.keys(S.done).length;
+  const best=S.mocks.length?Math.max(...S.mocks.map(x=>x.pct)):null;
+  const by={};for(const k in S.qs){const r=QIDX[k];if(!r)continue;const b=by[r.mid]||(by[r.mid]={c:0,w:0});b.c+=S.qs[k].c;b.w+=S.qs[k].w;}
+  const rows=["m1","m2","m3","m4","m5","m6","m7","gs"].filter(k=>by[k]).map(k=>{const b=by[k];const a=Math.round(100*b.c/(b.c+b.w));return `<tr><td>${esc(SECNAME(k))}</td><td>${b.c+b.w}</td><td><span class="chip ${a>=75?"good":a>=50?"gold":"bad"}">${a}%</span></td></tr>`;}).join("");
+  const hist=S.mocks.slice(-6).reverse();
+  const ti=todayIdx();
+  app.innerHTML=`<div class="stack">
+    <div><div class="eyebrow">How you're doing</div><h1>Progress</h1></div>
+    <section class="grid2 grid4">
+      <div class="tile"><div class="k">Lessons done</div><div class="v">${done}<span class="muted small">/${total}</span></div></div>
+      <div class="tile"><div class="k">Quiz accuracy</div><div class="v">${st.acc==null?"–":st.acc+"%"}</div></div>
+      <div class="tile"><div class="k">Questions answered</div><div class="v">${st.c+st.w}</div></div>
+      <div class="tile"><div class="k">Best mock</div><div class="v">${best==null?"–":best+"%"}</div></div>
+    </section>
+    <section class="card stack" style="gap:8px"><div class="sec-h"><h2>Study plan</h2><span class="small muted">${ti>=0&&ti<MAN.calendar.length?`Day ${ti+1} of ${MAN.calendar.length}`:""}</span></div><p class="small muted" style="margin:0">Your day-by-day calendar to 31 January. You can change the start date there.</p><div class="row"><a class="btn" href="#plan">Open study plan</a></div></section>
+    <section class="stack" style="gap:8px"><h2>Accuracy by section</h2>
+      ${rows?`<div class="card" style="padding:4px 6px"><table class="facts"><tr><td><b>Section</b></td><td><b>Answered</b></td><td><b>Accuracy</b></td></tr>${rows}</table></div>`:`<p class="notice">Answer some questions and your accuracy for each section will show here.</p>`}</section>
+    <section class="stack" style="gap:8px"><h2>Mock history</h2>
+      ${hist.length?`<div class="list">${hist.map(h=>`<div class="li"><span class="grow"><span class="t">${h.score} / ${h.total}${h.label?` · ${esc(h.label)}`:""}</span><br><span class="small muted">${new Date(h.ts).toLocaleDateString("en-IN",{day:"numeric",month:"short"})} · ${h.c} right · ${h.w} wrong · ${h.u} skipped</span></span><span class="chip ${h.pct>=60?"good":h.pct>=40?"gold":"bad"}">${h.pct}%</span></div>`).join("")}</div>`:`<p class="notice">No mocks yet. Your first one is scheduled on the plan.</p>`}</section>
+  </div>`;
+}
+async function checkUpdates(b){
+  const t=$("#toast"); const before=MAN?MAN.version||0:0;
   b.disabled=true;b.textContent="Checking…";
   try{
     await loadContent(true);
@@ -836,9 +879,39 @@ $("#updbtn").onclick=async()=>{
     t.innerHTML=`<div class="notice" style="margin-top:8px">${after>before?`Updated. ${latest?esc(latest.items.join(" · ")):""}`:"You have the latest lessons, papers and plan."}</div>`;
     t.hidden=false; setTimeout(()=>{t.hidden=true;},6000);
     render(true);
-  }catch(e){t.innerHTML=`<div class="notice err" style="margin-top:8px">Couldn't check for updates. Check your connection and try again.</div>`;t.hidden=false;}
-  b.disabled=false;b.textContent="Check for updates";
-};
+  }catch(e){t.innerHTML=`<div class="notice err" style="margin-top:8px">Couldn't check for updates. Check your connection and try again.</div>`;t.hidden=false;b.disabled=false;b.textContent="Check for updates";}
+}
+function viewMore(){
+  const news=(MAN.changelog||[]);
+  const unseen=news.filter(c=>c.v>(S.seen||0)).length;
+  app.innerHTML=`<div class="stack">
+    <div><h1>More</h1></div>
+    <div class="list">
+      <a class="li" href="#notes"><span class="grow"><span class="t">My notes</span><br><span class="small muted">Answers you saved while asking doubts</span></span><span class="chip mute">${N.items.length}</span></a>
+      <a class="li" href="#data"><span class="grow"><span class="t">Backup and restore</span><br><span class="small muted">Export or import your progress and notes</span></span><span class="muted">›</span></a>
+    </div>
+    <section class="card stack" style="gap:8px"><div class="sec-h"><h2>Course updates</h2><span class="small muted">Version ${MAN.version||1}</span></div>
+      <p class="small muted" style="margin:0">New lessons and fixes are added as they're written. Check to load the latest.</p>
+      <div class="row"><button class="btn primary" id="updbtn">Check for updates</button></div></section>
+    ${ENV.mode!=="gh"?buildCard():""}
+    <section class="stack" style="gap:8px"><div class="sec-h"><h2>What's new</h2>${unseen?`<button class="btn sm ghost" id="seen">Mark as read</button>`:""}</div>
+      <div class="card">${news.slice(0,4).map((c,i)=>`<div style="${i?"margin-top:12px;":""}"><div class="small muted">${esc(c.date)}${c.v>(S.seen||0)?' <span class="chip">New</span>':""}</div><ul style="margin:4px 0 0;padding-left:20px">${c.items.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`).join("")}</div></section>
+    ${ENV.lock?`<div class="row"><button class="btn" id="lockbtn2">Lock this device</button></div>`:""}
+  </div>`;
+  $("#updbtn").onclick=()=>checkUpdates($("#updbtn"));
+  const sn=$("#seen"); if(sn)sn.onclick=()=>{S.seen=Math.max(...news.map(c=>c.v));persist("s");viewMore();};
+  const cp=$("#copyprompt");if(cp)cp.onclick=async()=>{try{await navigator.clipboard.writeText(PROMPT);cp.textContent="Copied ✓";}catch(e){cp.textContent="Copy not allowed here";}};
+  const lk=$("#lockbtn2"); if(lk)lk.onclick=()=>ENV.lock();
+}
+
+/* ---------- boot ---------- */
+(async()=>{
+  if(ENV.ready)await ENV.ready;
+  try{await loadContent();}catch(e){app.innerHTML=`<p class="err">Couldn't load the course content. Reload the page to try again.</p>`;return;}
+  render();
+  initCloud();
+})();
+
 </script>
 </body>
 </html>
