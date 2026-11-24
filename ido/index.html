@@ -282,7 +282,7 @@ nav.tabs a .badge{position:absolute;margin-left:18px;margin-top:-2px;min-width:1
 </style>
 <script>
 window.PREP_ENV=(function(){
-  const CFG={"clientId": "1051177919991-lfq04am73d56tti2seefav5v0a7em48d.apps.googleusercontent.com", "stats": {"modules": 7, "lessons": 48, "lessonQ": 473, "bankQ": 979, "hardQ": 119, "pastQ": 377, "cards": 660, "visuals": 161, "interviewQ": 28}};
+  const CFG={"clientId": "1051177919991-lfq04am73d56tti2seefav5v0a7em48d.apps.googleusercontent.com", "stats": {"modules": 7, "lessons": 56, "lessonQ": 593, "bankQ": 979, "hardQ": 119, "pastQ": 377, "cards": 769, "visuals": 161, "interviewQ": 28}};
   const LSK="ps_ido_";
   const te=new TextEncoder(), td=new TextDecoder();
   const b64d=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
@@ -593,6 +593,7 @@ function planItems(ti){
   const mockDone=(S.mocks||[]).some(m=>(m.day===ti||(m.day==null&&dkey(new Date(m.ts))===dk))&&m.total>=need);
   if(e.core)out.push({k:"core",lid:e.core,done:!!S.done[e.core]});
   if(e.side)out.push({k:"side",lid:e.side,done:!!S.done[e.side]});
+  if(e.side2&&LIDX[e.side2])out.push({k:"side2",lid:e.side2,done:!!S.done[e.side2]});
   if(e.side_task)out.push({k:"st",done:!!P.st});
   if(e.mod)out.push({k:"rv",done:!!P.rv});
   if(e.task)out.push({k:"tk",done:!!P.tk||(e.t==="mock"&&mockDone)});
@@ -671,6 +672,7 @@ function dayItems(ti,label){
     const ck=(k)=>`<button class="check ${PI[k]&&PI[k].done?"on":""}" data-pk="${k}" data-day="${ti}" aria-label="Mark as done">${PI[k]&&PI[k].done?"✓":""}</button>`;
     if(e.core){const lm=lessonMeta(e.core);const ok=!!LIDX[e.core];items.push(`<a class="li" href="${ok?"#lesson-"+e.core:"#module-"+lm.m.id}">${ck("core")}<span class="grow"><span class="small muted">${esc(lm.m.short)} · 75 min</span><br><span class="t">${esc(lm.l.title)}</span></span>${ok?"":'<span class="chip mute">Coming soon</span>'}</a>`);}
     if(e.side){const lm=lessonMeta(e.side);const ok=!!LIDX[e.side];items.push(`<a class="li" href="${ok?"#lesson-"+e.side:"#module-"+lm.m.id}">${ck("side")}<span class="grow"><span class="small muted">${esc(lm.m.short)} · 30 min</span><br><span class="t">${esc(lm.l.title)}</span></span>${ok?"":'<span class="chip mute">Coming soon</span>'}</a>`);}
+    if(e.side2&&LIDX[e.side2]){const lm=lessonMeta(e.side2);items.push(`<a class="li" href="#lesson-${e.side2}">${ck("side2")}<span class="grow"><span class="small muted">${esc(lm.m.short)} · ${lm.l.minutes||25} min</span><br><span class="t">${esc(lm.l.title)}</span></span></a>`);}
     if(e.side_task){const pp=/2019/.test(e.side_task)&&PYQ;items.push(`<${pp?'a href="#quiz-pps-y2019"':"div"} class="li">${ck("st")}<span class="grow"><span class="small muted">Practice · 30 min${pp?" · ticks itself when you finish":""}</span><br><span class="t">${esc(e.side_task.replace(" (Past papers)",""))}</span></span>${pp?'<span class="muted">›</span>':""}</${pp?"a":"div"}>`);}
     if(e.mod){const m=modById(e.mod);items.push(`<a class="li" href="#module-${m.id}">${ck("rv")}<span class="grow"><span class="small muted">Revision</span><br><span class="t">${esc(m.title)}</span></span></a>`);}
     if(e.task)items.push(`<${e.t==="mock"?'a href="#mock"':(/Interview/.test(e.task)?'a href="#interview"':'a href="#crash"')} class="li">${ck("tk")}<span class="grow"><span class="small muted">${e.t==="mock"?"Mock test · ticks itself when you submit":"Revision · opens your crash-revision plan"}</span><br><span class="t">${esc(e.task)}</span></span><span class="muted">›</span></a>`);
@@ -691,7 +693,7 @@ function viewHome(){
     if(fullToday&&!S.ahead&&ad!==ti)todayHtml+=`<div class="notice" style="margin-top:12px;display:flex;gap:10px;align-items:center;justify-content:space-between"><span class="small"><b>Today's plan is done.</b> Want to keep going with tomorrow's plan?</span><button class="btn sm primary" id="aheadon">Work ahead</button></div>`;
     if(S.ahead){const n=daysAhead();if(n>0)todayHtml+=`<p class="small muted" style="margin:10px 0 0">You're <b>${n} day${n>1?"s":""} ahead</b> of plan. <button class="linkbtn small" id="aheadoff">Stop working ahead</button></p>`;else if(ad!==ti||fullToday)todayHtml+=`<p class="small muted" style="margin:10px 0 0"><button class="linkbtn small" id="aheadoff">Stop working ahead</button></p>`;}
   }
-  const order=[];MAN.calendar.forEach(e=>{[e.core,e.side].forEach(x=>{if(x&&!order.includes(x))order.push(x);});});
+  const order=[];MAN.calendar.forEach(e=>{[e.core,e.side,e.side2].forEach(x=>{if(x&&!order.includes(x))order.push(x);});});
   const nextId=order.find(id=>LIDX[id]&&!S.done[id]);
   const nl=nextId?lessonMeta(nextId):null;
   const news=(MAN.changelog||[]).filter(c=>c.v>(S.seen||0));
@@ -707,7 +709,7 @@ function viewHome(){
   const ao=$("#aheadon");if(ao)ao.onclick=()=>{S.ahead=1;persist("s");viewHome();};
   const af=$("#aheadoff");if(af)af.onclick=()=>{S.ahead=0;persist("s");viewHome();};
   app.querySelectorAll("[data-pk]").forEach(b=>b.onclick=(ev)=>{ev.preventDefault();ev.stopPropagation();const k=b.dataset.pk;const day=+b.dataset.day;const e=MAN.calendar[day];
-    if(k==="core"||k==="side"){const id=e[k];if(S.done[id]){if(dkey(new Date(S.done[id]))===dkey())bump(-10);delete S.done[id];}else{S.done[id]=Date.now();bump(10);}syncPlanDone();persist("s");}
+    if(k==="core"||k==="side"||k==="side2"){const id=e[k];if(S.done[id]){if(dkey(new Date(S.done[id]))===dkey())bump(-10);delete S.done[id];}else{S.done[id]=Date.now();bump(10);}syncPlanDone();persist("s");}
     else setPlan(k,undefined,day);
     syncDay(day);viewHome();});
 }
@@ -887,7 +889,7 @@ $("#askform").addEventListener("submit",async e=>{
 
 /* ---------- quiz ---------- */
 let QZ=null;
-function recallLessons(day){for(let i=day-1;i>=0;i--){const e=MAN.calendar[i];const L=[e.core,e.side].filter(x=>x&&LIDX[x]);if(L.length)return L;}return [];}
+function recallLessons(day){for(let i=day-1;i>=0;i--){const e=MAN.calendar[i];const L=[e.core,e.side,e.side2].filter(x=>x&&LIDX[x]);if(L.length)return L;}return [];}
 function buildQuiz(key){
   let ids=[],title="",back="#home",lesson=null;
   if(key==="weak"){ids=S.weak.filter(q=>QIDX[q]);title="Weak areas";back="#weak";}
