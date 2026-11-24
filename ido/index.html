@@ -535,7 +535,7 @@ function md(text){
     if(ln)out+="<p>"+ln+"</p>";}
   if(inList)out+="</ul>";return out;
 }
-function stats(){let c=0,w=0;for(const k in S.qs){c+=S.qs[k].c;w+=S.qs[k].w;}return{c,w,acc:c+w?Math.round(100*c/(c+w)):null};}
+function stats(){let c=0,w=0;for(const k in S.qs){if(!QIDX[k])continue;c+=S.qs[k].c;w+=S.qs[k].w;}return{c,w,acc:c+w?Math.round(100*c/(c+w)):null};}
 const GOAL=40;
 function dkey(t){t=t||new Date();return t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0");}
 function dayNum(){const t=new Date();return Math.floor((t.getTime()-t.getTimezoneOffset()*60000)/DAY);}
@@ -545,7 +545,7 @@ function streak(){let n=0;for(let i=0;i<400;i++){const v=(S.days||{})[dkey(new D
 function planStreak(){let n=0;for(let i=0;i<400;i++){const k=dkey(new Date(Date.now()-i*DAY));if((S.planDone||{})[k])n++;else if(i===0)continue;else break;}return n;}
 function planItems(ti){
   const e=MAN.calendar[ti]; const k=dkey(); const P=(S.plan||{})[k]||{}; const out=[];
-  const mockToday=(S.mocks||[]).some(m=>dkey(new Date(m.ts))===k);
+  const need=/50 questions/.test(e.task||"")?50:/2019 paper/.test(e.task||"")?99:/100 Q|Full mock/.test(e.task||"")?100:1;const mockToday=(S.mocks||[]).some(m=>dkey(new Date(m.ts))===k&&m.total>=need);
   if(e.core)out.push({k:"core",lid:e.core,done:!!S.done[e.core]});
   if(e.side)out.push({k:"side",lid:e.side,done:!!S.done[e.side]});
   if(e.side_task)out.push({k:"st",done:!!P.st});
@@ -555,11 +555,11 @@ function planItems(ti){
   return out;
 }
 function setPlan(key,val){const k=dkey();S.plan=S.plan||{};const P=S.plan[k]=S.plan[k]||{};if(val===undefined)val=!P[key];if(val)P[key]=1;else delete P[key];
-  const ks=Object.keys(S.plan).sort();if(ks.length>60)ks.slice(0,ks.length-60).forEach(x=>delete S.plan[x]);persist("s");}
+  const ks=Object.keys(S.plan).sort();if(ks.length>60)ks.slice(0,ks.length-60).forEach(x=>delete S.plan[x]);syncPlanDone();persist("s");}
 function syncPlanDone(){const ti=todayIdx();if(ti<0||ti>=MAN.calendar.length)return null;const it=planItems(ti);const d=it.filter(x=>x.done).length;
-  S.planDone=S.planDone||{};const k=dkey();if(d===it.length&&!S.planDone[k]){S.planDone[k]=1;persist("s");}return {d,t:it.length};}
+  S.planDone=S.planDone||{};const k=dkey();if(d===it.length){if(!S.planDone[k]){S.planDone[k]=1;persist("s");}}else if(S.planDone[k]){delete S.planDone[k];persist("s");}return {d,t:it.length};}
 function allCards(){const out=[];for(const lid in S.done){const r=LIDX[lid];if(!r||r.l.paper)continue;(r.l.facts||[]).forEach((f,i)=>out.push({id:lid+"f"+i,lid,f:f[0],b:f[1]}));(r.l.cards||[]).forEach((c,i)=>out.push({id:lid+"c"+i,lid,f:c[0],b:c[1]}));}return out;}
-function deck(){const today=dayNum();const st=S.cards||{};const all=allCards();const due=all.filter(c=>st[c.id]&&st[c.id].d<=today);const nt=(S.newDay&&S.newDay.d===today)?S.newDay.n:0;const fresh=all.filter(c=>!st[c.id]).slice(0,Math.max(0,15-nt));return {due,fresh,total:all.length,learned:Object.keys(st).length};}
+function deck(){const today=dayNum();const st=S.cards||{};const all=allCards();const due=all.filter(c=>st[c.id]&&st[c.id].d<=today);const nt=(S.newDay&&S.newDay.d===today)?S.newDay.n:0;const fresh=all.filter(c=>!st[c.id]).slice(0,Math.max(0,15-nt));return {due,fresh,total:all.length,learned:all.filter(c=>st[c.id]).length};}
 function rateCard(c,r){const today=dayNum();S.cards=S.cards||{};const old=S.cards[c.id];let i=old?old.i:0;
   if(r==="again")i=0;else if(r==="hard")i=Math.max(1,Math.round(i*1.2));else if(r==="good")i=i<1?1:Math.round(i*2.3);else i=i<1?4:Math.round(i*3.2);
   S.cards[c.id]={i,d:today+(r==="again"?0:i)};
@@ -641,7 +641,7 @@ function viewHome(){
     <a class="card" href="#cards" style="text-decoration:none;color:var(--ink);display:flex;align-items:center;gap:12px"><span style="flex:1"><span class="eyebrow">Flashcards</span><br><b style="font-size:17px">${n?`${n} card${n>1?"s":""} to review today`:dk.total?"All caught up for today":"Your deck is empty"}</b><br><span class="small muted">${dk.total?`${dk.learned} of ${dk.total} facts learned`:"Finish a lesson to add its key facts"}</span></span><span class="btn sm ${n?"primary":""}">${n?"Start":"Open"}</span></a>`;})()}
   </div>`;
   app.querySelectorAll("[data-pk]").forEach(b=>b.onclick=(ev)=>{ev.preventDefault();ev.stopPropagation();const k=b.dataset.pk;const e=MAN.calendar[todayIdx()];
-    if(k==="core"||k==="side"){const id=e[k];if(S.done[id])delete S.done[id];else{S.done[id]=Date.now();bump(10);}persist("s");}
+    if(k==="core"||k==="side"){const id=e[k];if(S.done[id]){if(dkey(new Date(S.done[id]))===dkey())bump(-10);delete S.done[id];}else{S.done[id]=Date.now();bump(10);}syncPlanDone();persist("s");}
     else setPlan(k);
     viewHome();});
 }
@@ -664,7 +664,7 @@ function viewModule(id){
   const rows=m.lessons.map((l,i)=>{const ok=!!LIDX[l.id];const full=ok?LIDX[l.id].l:null;
     return ok?`<a class="li" href="#lesson-${l.id}"><span class="check ${S.done[l.id]?"on":""}">${S.done[l.id]?"✓":""}</span><span class="grow"><span class="small muted">Lesson ${i+1} · ${full.minutes} min · ${full.mcqs.length} questions</span><br><span class="t">${esc(l.title)}</span></span><span class="muted">›</span></a>`
       :`<div class="li"><span class="check"></span><span class="grow"><span class="small muted">Lesson ${i+1}</span><br><span class="t">${esc(l.title)}</span></span><span class="chip mute">Coming soon</span></div>`;}).join("");
-  const qn=avail?avail.lessons.reduce((a,l)=>a+l.mcqs.length,0):0;
+  const qn=avail?avail.lessons.reduce((a,l)=>a+l.mcqs.length,0)+(BANKN[m.id]||0):0;
   app.innerHTML=`<div class="stack">
     <a href="#learn" class="small">‹ Syllabus</a>
     <div><div class="eyebrow">${m.marks} marks in the exam</div><h1>${esc(m.title)}</h1><p class="muted" style="margin:6px 0 0">${p.d} of ${p.t} lessons done${avail?` · ${qn} practice questions`:""}</p></div>
@@ -705,7 +705,7 @@ function viewLesson(id){
     </div>
     </section>
   </article>`;
-  $("#markdone").onclick=()=>{if(S.done[id])delete S.done[id];else{S.done[id]=Date.now();bump(10);celebrate("Lesson complete · +10 points");}persist("s");viewLesson(id);};
+  $("#markdone").onclick=()=>{if(S.done[id]){if(dkey(new Date(S.done[id]))===dkey())bump(-10);delete S.done[id];}else{S.done[id]=Date.now();bump(10);celebrate("Lesson complete · +10 points");}syncPlanDone();persist("s");viewLesson(id);};
   hydrateChecks(); setupSteps(id,l); matchGame($("#matchgame"),l);
   app.querySelectorAll(".askline").forEach(b=>b.onclick=()=>openAsk({lesson:l,section:l.sections[+b.dataset.sec].h}));
   $("#fab").hidden=false; $("#fab").onclick=()=>openAsk({lesson:l});
@@ -798,10 +798,10 @@ function viewQuiz(key,soft){
     </div></div>`;
   app.querySelectorAll(".opt").forEach(b=>b.onclick=()=>{
     const j=+b.dataset.j; QZ.ans[QZ.i]=j; const ok=j===q.a; if(ok)QZ.score++;
-    if(!it.gen){recordAnswer(it.id,ok);persist("s");}
+    if(!it.gen){if(QZ.retry){bump(1);if(ok)S.weak=S.weak.filter(x=>x!==it.id);}else recordAnswer(it.id,ok);persist("s");}
     viewQuiz(key,true);
   });
-  const nx=$("#qnext"); if(nx)nx.onclick=()=>{if(QZ.i+1<QZ.items.length){QZ.i++;viewQuiz(key,true);}else{QZ.finished=true;if(/^pps?-/.test(QZ.key))setPlan("st",true);quizSummary();}window.scrollTo(0,0);};
+  const nx=$("#qnext"); if(nx)nx.onclick=()=>{if(QZ.i+1<QZ.items.length){QZ.i++;viewQuiz(key,true);}else{QZ.finished=true;if(/^pps?-y2019$/.test(QZ.key))setPlan("st",true);quizSummary();}window.scrollTo(0,0);};
   const ex=$("#qexpl"); if(ex)ex.onclick=()=>{const L=lm?lm.l:null;if(!L)return;openAsk({lesson:L,extra:`${q.q}\nOptions: ${q.o.map((o,j)=>LETTERS[j]+") "+o).join("; ")}\nCorrect: ${LETTERS[q.a]}. Learner chose: ${LETTERS[a]}.`,prefill:a===q.a?"Explain why the other options are wrong.":"Why is my answer wrong? Help me remember the right one."});};
 }
 function quizSummary(){
@@ -814,8 +814,8 @@ function quizSummary(){
     <div class="err" id="generr"></div>
     ${wrong.length?`<h2>Review your mistakes</h2>`+wrong.map(({it,i})=>`<div class="card stack" style="gap:6px"><b>${esc(it.q.q)}</b><div class="small">Your answer: <span class="chip bad">${LETTERS[QZ.ans[i]]}) ${esc(it.q.o[QZ.ans[i]])}</span></div><div class="small">Correct: <span class="chip good">${LETTERS[it.q.a]}) ${esc(it.q.o[it.q.a])}</span></div><div class="expl small">${esc(it.q.e)}</div></div>`).join(""):""}
   </div>`;
-  const r=$("#retry"); if(r)r.onclick=()=>{QZ={...QZ,items:wrong.map(w=>w.it),i:0,ans:{},score:0,finished:false};viewQuiz(QZ.key,true);};
-  $("#again").onclick=()=>{QZ=null;viewQuiz(parseHash().a);};
+  const r=$("#retry"); if(r)r.onclick=()=>{QZ={...QZ,items:wrong.map(w=>w.it),i:0,ans:{},score:0,finished:false,retry:true};viewQuiz(QZ.key,true);};
+  $("#again").onclick=()=>{QZ=null;viewQuiz(parseHash().a);if(QZ)QZ.retry=true;};
   const g=$("#gen"); if(g)g.onclick=()=>genQuestions(g);
 }
 async function genQuestions(btn){
@@ -836,12 +836,13 @@ async function genQuestions(btn){
 /* ---------- mock ---------- */
 let MOCK=null, TICK=null;
 function mockPool(){return Object.keys(QIDX).filter(k=>QIDX[k].mid!=="gs"&&QIDX[k].q&&QIDX[k].q.o&&QIDX[k].q.o.length>=2);}
-function startMock(ids,minutes,label){MOCK={ids,ans:{},conf:{},i:0,start:Date.now(),dur:Math.round(minutes*60)*1000,done:false,label:label||""};if(location.hash!=="#mock")location.hash="mock";else mockRun();}
+function startMock(ids,minutes,label){if(!ids||!ids.length){toastPep("No questions are available for this test yet.");return;}MOCK={ids,ans:{},conf:{},i:0,start:Date.now(),dur:Math.round(minutes*60)*1000,done:false,label:label||""};if(location.hash!=="#mock")location.hash="mock";else mockRun();}
 function buildMock(n,only){
   const pool=mockPool();const seen=new Set(S.mseen||[]);const by={};pool.forEach(k=>{(by[QIDX[k].mid]=by[QIDX[k].mid]||[]).push(k);});
   const mods=MAN.modules.filter(m=>!only||m.id===only);const tot=mods.reduce((a,m)=>a+m.marks,0);
-  let quota=mods.map(m=>({m,n:Math.round(n*m.marks/tot)}));let diff=n-quota.reduce((a,x)=>a+x.n,0);quota[quota.length-1].n+=diff;
+  let quota=mods.map((m,i)=>{const x=n*m.marks/tot;return {m,i,n:Math.floor(x),r:x-Math.floor(x)};});let diff=n-quota.reduce((a,x)=>a+x.n,0);[...quota].sort((a,b)=>b.r-a.r||a.i-b.i).slice(0,diff).forEach(x=>x.n++);
   const out=[];quota.forEach(({m,n:k})=>{const arr=by[m.id]||[];const fresh=shuffle(arr.filter(x=>!seen.has(x))),old=shuffle(arr.filter(x=>seen.has(x)));out.push(...fresh.concat(old).slice(0,k));});
+  if(out.length<n){const used=new Set(out);out.push(...shuffle(pool.filter(k=>!used.has(k)&&mods.some(m=>m.id===QIDX[k].mid))).slice(0,n-out.length));}
   // keep exam order: sections as in the paper
   return out;
 }
@@ -857,7 +858,7 @@ function viewMock(soft){
     <div class="list">
       <button class="li" data-mk="100"><span class="grow"><span class="t">Full mock · 100 questions · 90 min</span><br><span class="small muted">Exactly the exam's section split</span></span><span class="chip gold">Real exam</span></button>
       <button class="li" data-mk="50"><span class="grow"><span class="t">Half mock · 50 questions · 45 min</span><br><span class="small muted">Same split, half the length</span></span></button>
-      <button class="li" data-mk="25"><span class="grow"><span class="t">Quick mock · 25 questions · 22 min</span><br><span class="small muted">For a busy day</span></span></button>
+      <button class="li" data-mk="25"><span class="grow"><span class="t">Quick mock · 25 questions · 22½ min</span><br><span class="small muted">For a busy day</span></span></button>
     </div>
     <h2>Section test</h2><p class="small muted" style="margin:0">20 questions from one section · 18 min</p>
     <div class="row" style="flex-wrap:wrap">${MAN.modules.map(m=>`<button class="btn sm" data-sec="${m.id}">${esc(m.short)}</button>`).join("")}</div>
@@ -870,6 +871,7 @@ function viewMock(soft){
 function mockLeft(){return Math.max(0,MOCK.start+MOCK.dur-Date.now());}
 function fmtMs(ms){const s=Math.ceil(ms/1000);return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");}
 function mockRun(){
+  try{localStorage.setItem(LS+"mock",JSON.stringify(MOCK));}catch(e){}
   clearInterval(TICK);
   const id=MOCK.ids[MOCK.i], q=QIDX[id].q, a=MOCK.ans[MOCK.i];
   const answered=Object.keys(MOCK.ans).length;
@@ -904,10 +906,10 @@ function submitMock(){
   MOCK.ids.forEach((id,i)=>{const r=QIDX[id];const a=MOCK.ans[i];const bm=byMod[r.mid]||(byMod[r.mid]={c:0,w:0,u:0,t:0});bm.t++;
     if(a==null){u++;bm.u++;}else if(a===r.q.a){c++;bm.c++;recordAnswer(id,true);}else{w++;bm.w++;recordAnswer(id,false);}});
   const score=Math.round((c-MAN.exam.negative*w)*100)/100;
-  const cf={s:{c:0,w:0},h:{c:0,w:0},g:{c:0,w:0}};MOCK.ids.forEach((id,i)=>{const a=MOCK.ans[i];if(a==null)return;const k=(MOCK.conf||{})[i]||"s";cf[k][a===QIDX[id].q.a?"c":"w"]++;});
-  MOCK.done=true; MOCK.res={c,w,u,score,byMod,cf,total:MOCK.ids.length,taken:Date.now()-MOCK.start};
+  const cf={s:{c:0,w:0},h:{c:0,w:0},g:{c:0,w:0},n:{c:0,w:0}};MOCK.ids.forEach((id,i)=>{const a=MOCK.ans[i];if(a==null)return;const k=(MOCK.conf||{})[i]||"n";cf[k][a===QIDX[id].q.a?"c":"w"]++;});
+  MOCK.done=true; try{localStorage.removeItem(LS+"mock");}catch(e){} MOCK.res={c,w,u,score,byMod,cf,total:MOCK.ids.length,taken:Date.now()-MOCK.start};
   S.mseen=[...new Set([...(S.mseen||[]),...MOCK.ids])].slice(-3000);
-  S.mocks.push({ts:Date.now(),label:MOCK.label||"",score,total:MOCK.ids.length,c,w,u,cf,pct:Math.round(100*Math.max(0,score)/MOCK.ids.length)});
+  S.mocks.push({ts:Date.now(),label:MOCK.label||"",score,total:MOCK.ids.length,c,w,u,cf,pct:Math.round(100*Math.max(0,score)/MOCK.ids.length)});syncPlanDone();
   if(S.mocks.length>60)S.mocks=S.mocks.slice(-60);
   persist("s");
   if(location.hash!=="#mock-result")location.hash="mock-result";else mockResult();
@@ -928,11 +930,11 @@ function viewDrill(){
 function drillRun(){
   clearInterval(DTICK);
   if(DR.i>=DR.ids.length)return drillEnd();
-  const id=DR.ids[DR.i],q=QIDX[id].q;DR.qs=Date.now();const LIM=40;
+  if(DR.res.length>DR.i){DR.i++;if(DR.i>=DR.ids.length)return drillEnd();}const id=DR.ids[DR.i],q=QIDX[id].q;if(DR.qi!==DR.i){DR.qi=DR.i;DR.qs=Date.now();}const LIM=40;
   app.innerHTML=`<div class="stack"><div class="row" style="justify-content:space-between"><span class="small muted">Question ${DR.i+1} of ${DR.ids.length} · streak ${DR.streak}</span><span class="timer" id="dt">40</span></div>
     <div class="dbar"><i id="dbi"></i></div>
     <div class="card stack"><h2 style="font-weight:600;line-height:1.4">${esc(q.q)}</h2><div class="stack" style="gap:8px">${q.o.map((o,j)=>`<button class="opt" data-j="${j}"><span class="lt">${LETTERS[j]}</span><span>${esc(o)}</span></button>`).join("")}</div><div id="dfb"></div></div></div>`;
-  const fin=(j)=>{clearInterval(DTICK);const t=Math.min(LIM,(Date.now()-DR.qs)/1000);const ok=j===q.a;DR.res.push({id,ok,t,skip:j==null});
+  const fin=(j)=>{clearInterval(DTICK);if(DR.res.length>DR.i)return;const t=Math.min(LIM,(Date.now()-DR.qs)/1000);const ok=j===q.a;DR.res.push({id,ok,t,skip:j==null});
     if(j!=null)recordAnswer(id,ok);DR.streak=ok?DR.streak+1:0;DR.best=Math.max(DR.best,DR.streak);
     app.querySelectorAll(".opt").forEach((b,k)=>{b.disabled=true;if(k===q.a)b.classList.add("right");else if(k===j)b.classList.add("wrong");});
     $("#dfb").innerHTML=`<p class="small" style="margin:6px 0 0"><b>${j==null?"Time's up.":ok?"Correct":"Not quite"}</b> ${esc(q.e)}</p><button class="btn primary" id="dnext" style="margin-top:8px">${DR.i+1<DR.ids.length?"Next ›":"See result"}</button>`;
@@ -991,13 +993,13 @@ function viewSheet(mid){
 function secStats(){const by={};for(const k in S.qs){const r=QIDX[k];if(!r)continue;const b=by[r.mid]||(by[r.mid]={c:0,w:0});b.c+=S.qs[k].c;b.w+=S.qs[k].w;}return by;}
 function viewCrash(){
   const by=secStats();const dk=deck();const due=dk.due.length+dk.fresh.length;
-  const rank=MAN.modules.map(m=>{const b=by[m.id];const n=b?b.c+b.w:0;const acc=n?b.c/n:null;const risk=acc==null?m.marks:m.marks*(1-acc);return {m,acc,n,risk};}).sort((a,b)=>b.risk-a.risk);
+  const rank=MAN.modules.map(m=>{const b=by[m.id];const n=b?b.c+b.w:0;const acc=n?b.c/n:null;const risk=m.marks*(1-(b?b.c:0)/(n+5));return {m,acc,n,risk};}).sort((a,b)=>b.risk-a.risk);
   app.innerHTML=`<div class="stack"><a class="small" href="#practice">‹ Practice</a>
     <div><div class="eyebrow">Last weeks before the exam</div><h1>Crash revision</h1><p class="muted" style="margin:6px 0 0">Sections ranked by <b>marks at risk</b> (exam marks × share you're getting wrong). Untested sections count as fully at risk.</p></div>
     <div class="list">${rank.map((r,i)=>`<div class="li" style="flex-wrap:wrap"><span class="grow" style="min-width:160px"><span class="t">${i+1}. ${esc(r.m.short)} · ${r.m.marks} marks</span><br><span class="small muted">${r.acc==null?"Not tested yet":`Accuracy ${Math.round(r.acc*100)}% over ${r.n} answers`} · about ${r.risk.toFixed(1)} marks at risk</span></span><span class="row" style="gap:6px"><a class="btn sm" href="#sheet-${r.m.id}">Cheat sheet</a><a class="btn sm" href="#numbers-${r.m.id}">Visuals</a><a class="btn sm primary" href="#quiz-mod-${r.m.id}">Practise</a></span></div>`).join("")}</div>
     <h2>Every revision day (about 60 min)</h2>
     <div class="list">
-      <a class="li" href="#cards"><span class="grow"><span class="t">1. Flashcards</span><br><span class="small muted">15 min · keeps every fact fresh</span></span><span class="chip ${due?"gold":"mute"}">${due} due</span></a>
+      <a class="li" href="#cards"><span class="grow"><span class="t">1. Flashcards</span><br><span class="small muted">15 min · keeps every fact fresh</span></span><span class="chip ${due?"gold":"mute"}">${dk.due.length} due${dk.fresh.length?` + ${dk.fresh.length} new`:""}</span></a>
       <a class="li" href="#sheet-${rank[0].m.id}"><span class="grow"><span class="t">2. Cheat sheet: ${esc(rank[0].m.short)}</span><br><span class="small muted">15 min · your biggest marks-at-risk section</span></span><span class="muted">›</span></a>
       <a class="li" href="#quiz-rapid"><span class="grow"><span class="t">3. Rapid revision quiz</span><br><span class="small muted">15 questions · your past mistakes first, then mixed</span></span><span class="muted">›</span></a>
       <a class="li" href="#drill"><span class="grow"><span class="t">4. Speed drill</span><br><span class="small muted">10 questions at exam pace</span></span><span class="muted">›</span></a>
@@ -1011,9 +1013,9 @@ function guessCoach(cf){
   const all={s:{c:0,w:0},h:{c:0,w:0},g:{c:0,w:0}};S.mocks.forEach(m=>{if(!m.cf)return;["s","h","g"].forEach(k=>{all[k].c+=m.cf[k].c;all[k].w+=m.cf[k].w;});});
   const pct=x=>x.c+x.w?Math.round(100*x.c/(x.c+x.w)):null;
   const row=(k,t)=>{const x=cf[k];return `<tr><td>${t}</td><td>${x.c+x.w}</td><td>${x.c} / ${x.w}</td><td><b>${net(x)>0?"+":""}${net(x)}</b></td></tr>`;};
-  const verdict=k=>{const p=pct(all[k]);if(p==null)return"";return p>20?`keep answering these (you're right ${p}% of the time; break-even is 20%)`:`these are costing you marks (only ${p}% right; break-even is 20%): skip them`;};
+  const verdict=k=>{const x=all[k],nn=x.c+x.w;if(!nn)return"";const p=Math.round(100*x.c/nn);if(nn<20)return `only ${nn} answers so far, too few to judge (right ${p}%)`;return x.c-MAN.exam.negative*x.w>0?`keep answering these (you're right ${p}% of the time; break-even is 20%)`:`these are costing you marks (only ${p}% right; break-even is 20%): skip them`;};
   return `<div class="card stack" style="gap:8px"><h2 style="margin:0">Guessing coach</h2>
-   ${tagged?`<table class="facts"><tr><td><b>Tag</b></td><td><b>Answered</b></td><td><b>Right / wrong</b></td><td><b>Net marks</b></td></tr>${row("s","Sure")}${row("h","50-50")}${row("g","Guess")}</table>
+   ${tagged?`<table class="facts"><tr><td><b>Tag</b></td><td><b>Answered</b></td><td><b>Right / wrong</b></td><td><b>Net marks</b></td></tr>${row("s","Sure")}${row("h","50-50")}${row("g","Guess")}${cf.n&&cf.n.c+cf.n.w?row("n","Not tagged"):""}</table>
    <p class="small" style="margin:0">Score if you had skipped your <b>guesses</b>: ${Math.round((MOCK.res.score-net(cf.g))*100)/100} (you scored ${MOCK.res.score}). If you had also skipped your <b>50-50s</b>: ${Math.round((MOCK.res.score-net(cf.g)-net(cf.h))*100)/100}.</p>
    <p class="small" style="margin:0">Across all your mocks: 50-50 answers: ${verdict("h")||"no data yet"}. Guesses: ${verdict("g")||"no data yet"}.</p>`:`<p class="small muted" style="margin:0">Tag answers Sure, 50-50 or Guess during the next mock to see whether guessing helps you.</p>`}
    <p class="small muted" style="margin:0">The maths: with 4 options and −0.25 per wrong answer, an answer pays off if you're right more than 20% of the time. A pure blind guess (25%) is barely positive (+0.06 marks on average); ruling out one option raises it to +0.17, ruling out two to +0.38.</p></div>`;
@@ -1025,7 +1027,7 @@ function mockResult(){
   const review=MOCK.ids.map((id,i)=>{const q=QIDX[id].q;const a=MOCK.ans[i];if(a===q.a)return"";return `<div class="card stack" style="gap:6px"><b>${i+1}. ${esc(q.q)}</b><div class="small">${a==null?'<span class="chip mute">Skipped</span>':`Your answer: <span class="chip bad">${LETTERS[a]}) ${esc(q.o[a])}</span>`}</div><div class="small">Correct: <span class="chip good">${LETTERS[q.a]}) ${esc(q.o[q.a])}</span></div><div class="expl small">${esc(q.e)}</div></div>`;}).join("");
   app.innerHTML=`<div class="stack">
     <a class="small" href="#practice">‹ Practice</a>
-    <div class="card"><div class="eyebrow">Mock result</div><h1 style="margin-top:4px">${R.score} / ${R.total}</h1><p class="muted" style="margin:6px 0 0">${R.c} right · ${R.w} wrong (−${Math.round(R.w*MAN.exam.negative*100)/100}) · ${R.u} skipped · ${fmtMs(R.taken)} taken</p></div>
+    <div class="card"><div class="eyebrow">Mock result</div><h1 style="margin-top:4px">${R.score} / ${R.total}</h1><p class="muted" style="margin:6px 0 0">${R.c} right · ${R.w} wrong${R.w?` (−${Math.round(R.w*MAN.exam.negative*100)/100})`:""} · ${R.u} skipped · ${fmtMs(R.taken)} taken</p></div>
     <div class="card tablewrap"><table class="facts" style="min-width:340px"><tr><td><b>Section</b></td><td><b>Right</b></td><td><b>Wrong</b></td><td><b>Skipped</b></td><td><b>Score</b></td></tr>${rows}</table></div>
     ${guessCoach(R.cf)}
     <div class="row"><a class="btn primary" href="#weak">Practise weak areas</a><button class="btn" id="newmock">New mock</button></div>
@@ -1157,14 +1159,14 @@ function viewPractice(){
     <section class="stack" style="gap:8px"><h2>Weak areas</h2>
       <a class="li card" href="#weak" style="border-radius:var(--r)"><span class="grow"><span class="t">Questions you got wrong</span><br><span class="small muted">Answer one correctly and it leaves the list</span></span><span class="chip ${S.weak.length?"bad":"mute"}">${S.weak.length}</span></a></section>
     <section class="stack" style="gap:8px"><h2>Practise by section</h2>
-      <div class="list">${avail.map(m=>{const n=MODS[m.id].lessons.reduce((a,l)=>a+l.mcqs.length,0);return `<a class="li" href="#quiz-mod-${m.id}"><span class="grow"><span class="t">${esc(m.title)}</span><br><span class="small muted">${n} questions, mixed</span></span><span class="muted">›</span></a>`;}).join("")}</div>
+      <div class="list">${avail.map(m=>{const n=MODS[m.id].lessons.reduce((a,l)=>a+l.mcqs.length,0)+(BANKN[m.id]||0);return `<a class="li" href="#quiz-mod-${m.id}"><span class="grow"><span class="t">${esc(m.title)}</span><br><span class="small muted">${n} questions, mixed</span></span><span class="muted">›</span></a>`;}).join("")}</div>
       <p class="small muted" style="margin:0">Each lesson also has its own questions at the end of the lesson.</p></section>
     ${PYQ?`<section class="stack" style="gap:8px"><h2>Past papers</h2><div class="list">${PYQ.papers.map(p=>`<a class="li" href="#paper-${p.id}"><span class="grow"><span class="t">${esc(p.title)}</span><br><span class="small muted">${p.questions.length} questions</span></span><span class="muted">›</span></a>`).join("")}<a class="li" href="#papers"><span class="grow"><span class="t">What the papers tell us</span><br><span class="small muted">Pattern analysis and what it means for you</span></span><span class="muted">›</span></a></div></section>`:""}
   </div>`;
 }
 function viewProgress(){
   const st=stats(); const total=allLessonCount(); const done=Object.keys(S.done).length;
-  const best=S.mocks.length?Math.max(...S.mocks.map(x=>x.pct)):null;
+  const full=S.mocks.filter(x=>x.total>=100&&x.label==="Full mock");const best=full.length?Math.max(...full.map(x=>x.pct)):null;
   const by={};for(const k in QIDX){const r=QIDX[k];const b=by[r.mid]||(by[r.mid]={n:0,t:0,c:0,w:0});b.n++;const q=S.qs[k];if(q){b.t++;b.c+=q.c;b.w+=q.w;}}
   let allN=0,allT=0;for(const k in by){allN+=by[k].n;allT+=by[k].t;}
   const rows=["m1","m2","m3","m4","m5","m6","m7","gs"].filter(k=>by[k]).map(k=>{const b=by[k];const m=modById(k);const a=b.c+b.w?Math.round(100*b.c/(b.c+b.w)):null;
@@ -1177,7 +1179,7 @@ function viewProgress(){
       <div class="tile"><div class="k">Lessons done</div><div class="v">${done}<span class="muted small">/${total}</span></div></div>
       <div class="tile"><div class="k">Quiz accuracy</div><div class="v">${st.acc==null?"–":st.acc+"%"}</div></div>
       <div class="tile"><div class="k">Questions tried</div><div class="v">${allT}<span class="muted small">/${allN}</span></div></div>
-      <div class="tile"><div class="k">Best mock</div><div class="v">${best==null?"–":best+"%"}</div></div>
+      <div class="tile"><div class="k">Best full mock</div><div class="v">${best==null?"–":best+"%"}</div></div>
     </section>
     <section class="card stack" style="gap:8px"><div class="sec-h"><h2>Study plan</h2><span class="small muted">${ti>=0&&ti<MAN.calendar.length?`Day ${ti+1} of ${MAN.calendar.length}`:""}</span></div><p class="small muted" style="margin:0">Your day-by-day calendar to 31 January. You can change the start date there.</p><div class="row"><a class="btn" href="#plan">Open study plan</a></div></section>
     <section class="stack" style="gap:8px"><h2>Accuracy by section</h2>
@@ -1261,13 +1263,13 @@ function matchGame(box,l){
   $("#mgnew").onclick=()=>matchGame(box,l);
 }
 const SLD={
- fan:{t:"Fan speed",min:20,max:100,step:5,v:80,u:"%",f:v=>{const p=Math.pow(v/100,3)*100;return {big:`${p.toFixed(0)}% power`,small:`At ${v}% speed the fan draws ${p.toFixed(0)}% power (speed³). Saving: ${(100-p).toFixed(0)}%.`,bar:p};}},
+ fan:{t:"Fan speed",min:20,max:100,step:5,v:80,u:"%",f:v=>{const p=Math.round(Math.pow(v/100,3)*1000)/10;return {big:`${p}% power`,small:`At ${v}% speed the fan draws ${p}% power (speed³). Saving: ${Math.round((100-p)*10)/10}%.`,bar:p};}},
  wind:{t:"Wind speed (× normal)",min:1,max:3,step:0.1,v:2,u:"×",f:v=>{const p=Math.pow(v,3);return {big:`${p.toFixed(1)}× power`,small:`Wind ${v.toFixed(1)}× as fast gives ${p.toFixed(1)}× the power (v³).`,bar:Math.min(100,p/27*100)};}},
  kmh:{t:"Speed in km/h",min:0,max:144,step:18,v:72,u:" km/h",f:v=>({big:`${(v*5/18).toFixed(0)} m/s`,small:`${v} × 5/18 = ${(v*5/18).toFixed(0)} m/s`,bar:v/144*100})},
- temp:{t:"Temperature in °C",min:-50,max:150,step:1,v:37,u:" °C",f:v=>{const F=v*9/5+32,K=v+273;const tag=v===-40?"Celsius = Fahrenheit here":v===4?"Water is densest here":v===37?"Body temperature":v===100?"Water boils (sea level)":v===0?"Water freezes":"";return {big:`${F.toFixed(1)} °F · ${K} K`,small:`°F = 9/5 × ${v} + 32${tag?" · "+tag:""}`,bar:(v+50)/2};}},
- ph:{t:"pH",min:0,max:14,step:0.5,v:7,u:"",f:v=>{const ex=[[1,"stomach acid"],[2,"lemon juice"],[3,"vinegar"],[5.5,"normal rain ~5.6"],[7,"pure water"],[7.5,"blood ~7.4"],[8.5,"baking soda"],[10,"soap"],[12.5,"bleach"],[14,"caustic soda"]];let b=ex[0];ex.forEach(e=>{if(Math.abs(e[0]-v)<Math.abs(b[0]-v))b=e;});
-   return {big:v<7?"Acidic":v>7?"Basic (alkaline)":"Neutral",small:`Near this pH: ${b[1]}. Each step is 10× stronger or weaker.`,bar:v/14*100,col:v<7?"var(--bad)":v>7?"var(--accent)":"var(--good)"};}},
- ohm:{t:"Voltage (V) across a 6 Ω resistor",min:0,max:24,step:1,v:12,u:" V",f:v=>{const I=v/6;return {big:`${I.toFixed(1)} A · ${(v*I).toFixed(0)} W`,small:`I = V/R = ${v}/6 = ${I.toFixed(1)} A; P = V × I = ${(v*I).toFixed(0)} W`,bar:v/24*100};}},
+ temp:{t:"Temperature in °C",min:-50,max:150,step:1,v:37,u:" °C",f:v=>{const F=v*9/5+32,K=Math.round((v+273.15)*100)/100;const tag=v===-40?"Celsius = Fahrenheit here":v===4?"Water is densest here":v===37?"Body temperature":v===100?"Water boils (sea level)":v===0?"Water freezes":"";return {big:`${F.toFixed(1)} °F · ${K} K`,small:`°F = 9/5 × ${v} + 32; K = °C + 273.15 (exams often round to 273)${tag?" · "+tag:""}`,bar:(v+50)/2};}},
+ ph:{t:"pH",min:0,max:14,step:0.5,v:7,u:"",f:v=>{const ex=[[0,"1 M hydrochloric acid"],[1,"stomach acid"],[2,"lemon juice"],[3,"vinegar"],[5.5,"normal rain ~5.6"],[6.5,"milk ~6.5"],[7,"pure water"],[7.5,"blood ~7.4"],[8.5,"baking soda"],[10,"soap"],[12.5,"bleach"],[14,"caustic soda"]];let b=ex[0];ex.forEach(e=>{if(Math.abs(e[0]-v)<Math.abs(b[0]-v))b=e;});
+   return {big:v<7?"Acidic":v>7?"Basic (alkaline)":"Neutral",small:`[H⁺] = 10^−${v} mol/L. Near this pH: ${b[1]}. Each whole pH unit is a 10× change in [H⁺].`,bar:v/14*100,col:v<7?"var(--bad)":v>7?"var(--accent)":"var(--good)"};}},
+ ohm:{t:"Voltage (V) across a 6 Ω resistor",min:0,max:24,step:1,v:12,u:" V",f:v=>{const I=v/6,P=v*v/6;return {big:`${I.toFixed(2)} A · ${P.toFixed(1)} W`,small:`I = V/R = ${v}/6 = ${I.toFixed(2)} A; P = V × I = ${P.toFixed(1)} W`,bar:v/24*100};}},
  interest:{t:"Years at 10% on ₹10,000",min:1,max:10,step:1,v:2,u:" yr",f:v=>{const si=10000*0.1*v,ci=10000*(Math.pow(1.1,v)-1);return {big:`SI ₹${si.toLocaleString("en-IN")} · CI ₹${Math.round(ci).toLocaleString("en-IN")}`,small:`Compound earns ₹${Math.round(ci-si).toLocaleString("en-IN")} more. 2 years: gap = P × r² = ₹100.`,bar:Math.min(100,ci/16000*100)};}},
  clock:{t:"Clock time (minutes past 3:00)",min:0,max:55,step:5,v:30,u:" min",f:v=>{const H=3,ang=Math.abs(30*H-5.5*v),a=ang>180?360-ang:ang;let mh=11-H,mm=60-v;if(mm===60){mm=0;mh+=1;}return {big:`3:${String(v).padStart(2,"0")} → ${a}°`,small:`|30×3 − 5.5×${v}| = ${ang}°${ang>180?` → 360 − ${ang} = ${a}°`:""}. Mirror shows ${mh}:${String(mm).padStart(2,"0")}.`,bar:a/180*100,clock:[H,v]};}},
 };
@@ -1301,7 +1303,7 @@ function hydrateDials(){
     const upd=()=>{const v=+inp.value;nd.style.transformOrigin="120px 120px";nd.style.transform=`rotate(${(v-80)/40*180-90}deg)`;db.textContent=v+" dB(A)";
       if(v>115){tm.textContent="Not allowed at any duration";tm.style.color="var(--bad)";}
       else if(v<=90){tm.textContent=v===90?"8 hours a day (the limit)":"Within the 8-hour limit";tm.style.color="var(--good)";}
-      else{const h=8/Math.pow(2,(v-90)/5);const hh=Math.floor(h),mm=Math.round((h-hh)*60);tm.textContent=`Max ${hh?hh+" h ":""}${mm?mm+" min":""} a day`;tm.style.color=v>=105?"var(--bad)":"var(--gold)";}};
+      else{const NT={90:"8 h",92:"6 h",95:"4 h",97:"3 h",100:"2 h",102:"1 h 30 min",105:"1 h",107:"45 min",110:"30 min",115:"15 min"};const h=8/Math.pow(2,(v-90)/5);const hh=Math.floor(h),mm=Math.round((h-hh)*60);tm.textContent=NT[v]?`Max ${NT[v]} a day`:`Max about ${hh?hh+" h ":""}${mm?mm+" min":""} a day`;tm.style.color=v>=105?"var(--bad)":"var(--gold)";}};
     inp.oninput=upd;upd();});
 }
 function hydrateMaps(){
@@ -1356,6 +1358,7 @@ function viewNumbers(mid){
 (async()=>{
   if(ENV.ready)await ENV.ready;
   try{await loadContent();}catch(e){app.innerHTML=`<p class="err">Couldn't load the course content. Reload the page to try again.</p>`;return;}
+  try{const m=JSON.parse(localStorage.getItem(LS+"mock")||"null");if(m&&!m.done&&m.ids&&m.ids.every(k=>QIDX[k]))MOCK=m;}catch(e){}
   render();
   initCloud();
 })();
