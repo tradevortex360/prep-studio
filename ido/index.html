@@ -282,7 +282,7 @@ nav.tabs a .badge{position:absolute;margin-left:18px;margin-top:-2px;min-width:1
 </style>
 <script>
 window.PREP_ENV=(function(){
-  const CFG={"clientId": "1051177919991-lfq04am73d56tti2seefav5v0a7em48d.apps.googleusercontent.com", "stats": {"modules": 7, "lessons": 56, "lessonQ": 593, "bankQ": 979, "hardQ": 119, "pastQ": 377, "cards": 769, "visuals": 161, "interviewQ": 28}};
+  const CFG={"clientId": "1051177919991-lfq04am73d56tti2seefav5v0a7em48d.apps.googleusercontent.com", "stats": {"modules": 7, "lessons": 70, "lessonQ": 803, "bankQ": 979, "hardQ": 119, "pastQ": 377, "cards": 1706, "visuals": 161, "interviewQ": 28}};
   const LSK="ps_ido_";
   const te=new TextEncoder(), td=new TextDecoder();
   const b64d=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
@@ -610,7 +610,7 @@ function setPlan(key,val,day){ensureDP();const i=day==null?activeDay():day;S.dp[
 function syncPlanDone(){const ti=todayIdx();if(ti<0||ti>=MAN.calendar.length)return null;const r=syncDay(ti);
   S.planDone=S.planDone||{};const k=dkey();if(S.dd[ti]){if(!S.planDone[k]){S.planDone[k]=1;persist("s");}}else if(S.planDone[k]){delete S.planDone[k];persist("s");}return r;}
 function allCards(){const out=[];for(const lid in S.done){const r=LIDX[lid];if(!r||r.l.paper)continue;(r.l.facts||[]).forEach((f,i)=>out.push({id:lid+"f"+i,lid,f:f[0],b:f[1]}));(r.l.cards||[]).forEach((c,i)=>out.push({id:lid+"c"+i,lid,f:c[0],b:c[1]}));}return out;}
-function deck(){const today=dayNum();const st=S.cards||{};const all=allCards();const due=all.filter(c=>st[c.id]&&st[c.id].d<=today);const nt=(S.newDay&&S.newDay.d===today)?S.newDay.n:0;const fresh=all.filter(c=>!st[c.id]).slice(0,Math.max(0,15-nt));return {due,fresh,total:all.length,learned:all.filter(c=>st[c.id]).length};}
+function deck(){const today=dayNum();const st=S.cards||{};const all=allCards();const due=all.filter(c=>st[c.id]&&st[c.id].d<=today);const nt=(S.newDay&&S.newDay.d===today)?S.newDay.n:0;const fresh=all.filter(c=>!st[c.id]).slice(0,Math.max(0,(S.newPerDay||30)-nt));return {due,fresh,total:all.length,learned:all.filter(c=>st[c.id]).length};}
 function rateCard(c,r){const today=dayNum();S.cards=S.cards||{};const old=S.cards[c.id];let i=old?old.i:0;
   if(r==="again")i=0;else if(r==="hard")i=Math.max(1,Math.round(i*1.2));else if(r==="good")i=i<1?1:Math.round(i*2.3);else i=i<1?4:Math.round(i*3.2);
   S.cards[c.id]={i,d:today+(r==="again"?0:i)};
@@ -1504,7 +1504,8 @@ function viewCards(){
   if(!CQ.q.length){const d0=deck();if(d0.due.length+d0.fresh.length)CQ.q=shuffle(d0.due).concat(d0.fresh);}
   if(!CQ.q.length){const dk=deck();app.innerHTML=`<div class="stack"><a class="small" href="#practice">‹ Practice</a><h1>Flashcards</h1>
     <div class="card"><b>${dk.total?"All caught up for today.":"Your deck is empty."}</b><p class="small muted" style="margin:6px 0 0">${dk.total?`You've reviewed ${CQ.done} card${CQ.done===1?"":"s"} today. ${dk.learned} of ${dk.total} facts are in rotation; cards you know well come back after days or weeks.`:"Each lesson's key facts join the deck when you mark the lesson as done."}</p></div>
-    <a class="btn" href="#home">Back to Today</a></div>`;return;}
+    <div class="card row" style="justify-content:space-between;align-items:center"><span class="small">New cards a day</span><span class="row" style="gap:6px">${[15,30,50].map(n=>`<button class="btn sm ${(S.newPerDay||30)===n?"primary":""}" data-npd="${n}">${n}</button>`).join("")}</span></div>
+    <a class="btn" href="#home">Back to Today</a></div>`;app.querySelectorAll("[data-npd]").forEach(b=>b.onclick=()=>{S.newPerDay=+b.dataset.npd;persist("s");CQ=null;viewCards();});return;}
   const c=CQ.q[0]; const r=LIDX[c.lid]; const st=(S.cards||{})[c.id];
   const lab=n=>n<1?"<1 d":n+" d"; const i=st?st.i:0;
   const nxt={again:"today",hard:lab(Math.max(1,Math.round(i*1.2))),good:lab(i<1?1:Math.round(i*2.3)),easy:lab(i<1?4:Math.round(i*3.2))};
