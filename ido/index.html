@@ -482,6 +482,20 @@ const LS=ENV.lsPrefix||"ido_";
 const $=(s,el=document)=>el.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const app=$("#app");
+/* letter sub/superscripts (ₙ, ⁿ) are missing from many fonts and show as boxes: draw those runs as real sub/sup text */
+const SUBM={"₀":"0","₁":"1","₂":"2","₃":"3","₄":"4","₅":"5","₆":"6","₇":"7","₈":"8","₉":"9","₊":"+","₋":"−","ₙ":"n"};
+const SUPM={"⁰":"0","¹":"1","²":"2","³":"3","⁴":"4","⁵":"5","⁶":"6","⁷":"7","⁸":"8","⁹":"9","⁺":"+","⁻":"−","ⁿ":"n"};
+const GLYPH_RE=/[₀-₉₊₋ₙ]*ₙ[₀-₉₊₋ₙ]*|[⁰¹²³⁴-⁹⁺⁻ⁿ]*ⁿ[⁰¹²³⁴-⁹⁺⁻ⁿ]*/g;
+function fixGlyphs(root){if(!root)return;const tw=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>/[ₙⁿ]/.test(n.nodeValue)&&!(n.parentNode&&/^(SCRIPT|STYLE|TEXTAREA|INPUT)$/.test(n.parentNode.nodeName))?1:3});
+  const nodes=[];while(tw.nextNode())nodes.push(tw.currentNode);
+  nodes.forEach(n=>{const svg=n.parentNode&&n.parentNode.namespaceURI==="http://www.w3.org/2000/svg";const t=n.nodeValue;const frag=document.createDocumentFragment();let last=0;
+    t.replace(GLYPH_RE,(m,off)=>{if(off>last)frag.appendChild(document.createTextNode(t.slice(last,off)));const sub=/ₙ/.test(m);const txt=[...m].map(c=>(sub?SUBM:SUPM)[c]||c).join("");
+      let el;if(svg){el=document.createElementNS("http://www.w3.org/2000/svg","tspan");el.setAttribute("baseline-shift",sub?"sub":"super");el.setAttribute("font-size","70%");}else el=document.createElement(sub?"sub":"sup");
+      el.textContent=txt;frag.appendChild(el);last=off+m.length;return m;});
+    if(last<t.length)frag.appendChild(document.createTextNode(t.slice(last)));n.parentNode.replaceChild(frag,n);});}
+try{new MutationObserver(ms=>{for(const m of ms)m.addedNodes.forEach(x=>{if(x.nodeType===1)fixGlyphs(x);else if(x.nodeType===3&&x.parentNode)fixGlyphs(x.parentNode);});}).observe(document.body,{childList:true,subtree:true});}catch(e){}
+document.addEventListener("DOMContentLoaded",()=>fixGlyphs(document.body));
+
 const DAY=864e5;
 const LETTERS=["A","B","C","D"];
 
@@ -793,7 +807,7 @@ function viewLesson(id){
 }
 /* speech: claude.ai voice where available, otherwise the browser's own voice */
 let SPK=0;
-function speechText(t){return String(t||"").replace(/\bsyn\b/g,"synonym").replace(/\bant\b/g,"antonym").replace(/·/g,",").replace(/→/g," to ").replace(/\s+/g," ").trim();}
+function speechText(t){return String(t||"").replace(/ⁿ/g," to the power n ").replace(/ₙ/g," n ").replace(/[₀-₉]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x2050)).replace(/₊/g," plus ").replace(/₋/g," minus ").replace(/\bsyn\b/g,"synonym").replace(/\bant\b/g,"antonym").replace(/·/g,",").replace(/→/g," to ").replace(/\s+/g," ").trim();}
 /* voices: natural/online voices first; S.voice "" = automatic, "claude" = Claude voice, else a device voiceURI */
 function voiceScore(v){let n=0;const nm=v.name||"";
   if(/natural|neural|premium|enhanced|wavenet|studio/i.test(nm))n+=60;
