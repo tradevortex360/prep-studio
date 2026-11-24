@@ -645,6 +645,7 @@ function render(soft){
   if(v==="sheet")return viewSheet(a);
   if(v==="crash")return viewCrash();
   if(v==="interview")return viewInterview(a);
+  if(v==="voice")return viewVoice();
   if(v==="weak")return viewWeak();
   if(v==="notes")return viewNotes();
   if(v==="plan")return viewPlan();
@@ -787,11 +788,26 @@ function viewLesson(id){
 /* speech: claude.ai voice where available, otherwise the browser's own voice */
 let SPK=0;
 function speechText(t){return String(t||"").replace(/\bsyn\b/g,"synonym").replace(/\bant\b/g,"antonym").replace(/·/g,",").replace(/→/g," to ").replace(/\s+/g," ").trim();}
-async function say(text){const my=++SPK;stopSay(true);const t=speechText(text);if(!t)return;
+/* voices: natural/online voices first; S.voice "" = automatic, "claude" = Claude voice, else a device voiceURI */
+function voiceScore(v){let n=0;const nm=v.name||"";
+  if(/natural|neural|premium|enhanced|wavenet|studio/i.test(nm))n+=60;
+  if(/online|google|siri/i.test(nm)||v.localService===false)n+=30;
+  if(/en[-_]IN/i.test(v.lang))n+=12;else if(/en[-_](GB|US|AU)/i.test(v.lang))n+=6;
+  if(/compact|espeak|eloquence|novelty|whisper|bad news|bahh|bells|boing|bubbles|cellos|jester|organ|trinoids|zarvox|albert|fred|junior|ralph|superstar|wobble|grandma|grandpa|rocko|shelley|sandy|flo|eddy|reed/i.test(nm))n-=80;
+  return n;}
+function engVoices(){try{return speechSynthesis.getVoices().filter(v=>/^en/i.test(v.lang)).sort((a,b)=>voiceScore(b)-voiceScore(a)||a.name.localeCompare(b.name));}catch(e){return [];}}
+function pickVoice(){const vs=engVoices();const c=curVoice();if(c&&c!=="claude"){const f=vs.find(v=>v.voiceURI===c);if(f)return f;}return vs[0]||null;}
+let VOV=null;function curVoice(){return VOV!==null?VOV:(S.voice||"");}
+function useDevice(){const c=curVoice();return !TTS||(c&&c!=="claude");}
+function voiceRate(){return S.vrate||0.95;}
+function speakDevice(t,v,onend){const u=new SpeechSynthesisUtterance(t);u.voice=v||pickVoice();if(u.voice)u.lang=u.voice.lang;u.rate=voiceRate();if(onend)u.onend=onend;speechSynthesis.speak(u);return u;}
+try{if(window.speechSynthesis)speechSynthesis.getVoices();}catch(e){}
+async function say(text,ov){const my=++SPK;stopSay(true);const t=speechText(text);if(!t)return;
   try{if(!TTS&&window.claude&&claude.use)TTS=await claude.use("tts");}catch(e){TTS=null;}
   if(my!==SPK)return;
-  if(TTS){try{await TTS.speak([{text:t.slice(0,1800),language:"en"}]);return;}catch(e){}}
-  if(window.speechSynthesis){const u=new SpeechSynthesisUtterance(t);const v=speechSynthesis.getVoices();u.voice=v.find(x=>/en-IN/i.test(x.lang))||v.find(x=>/^en/i.test(x.lang))||null;u.rate=0.95;speechSynthesis.speak(u);}}
+  VOV=ov===undefined?null:ov;const dev=useDevice();const pv=dev?pickVoice():null;VOV=null;
+  if(!dev){try{await TTS.speak([{text:t.slice(0,1800),language:"en"}]);return;}catch(e){}}
+  if(window.speechSynthesis){(t.match(/[^.!?]+[.!?]*/g)||[t]).forEach(p=>speakDevice(p.trim(),pv));}}
 function stopSay(keep){if(!keep)SPK++;try{if(TTS)TTS.stop();}catch(e){}try{if(window.speechSynthesis)speechSynthesis.cancel();}catch(e){}}
 /* listening: claude.ai dictation where available, otherwise the browser's own speech recognition */
 let DICT=null,DICTP=null;
@@ -843,11 +859,11 @@ async function setupListen(l){
   const b=$("#listen"); if(!b)return;
   if(!TTS&&window.claude&&claude.use){try{TTS=await claude.use("tts");}catch(e){TTS=null;}}
   if(!document.body.contains(b))return;
-  if(!TTS){if(!window.speechSynthesis)return;b.hidden=false;let on=false;
+  if(useDevice()){if(!window.speechSynthesis)return;b.hidden=false;let on=false;
     b.onclick=()=>{if(on){speechSynthesis.cancel();on=false;b.textContent="Listen";return;}
       const t=l.sections.map(s=>s.h+". "+stripHtml(s.html)).join(" ");const parts=t.match(/[^.!?]+[.!?]*/g)||[t];on=true;b.textContent="Stop listening";
-      const v=speechSynthesis.getVoices();const voice=v.find(x=>/en-IN/i.test(x.lang))||v.find(x=>/^en/i.test(x.lang))||null;
-      parts.forEach((p,i)=>{const u=new SpeechSynthesisUtterance(p);u.voice=voice;u.rate=0.95;if(i===parts.length-1)u.onend=()=>{on=false;if(document.body.contains(b))b.textContent="Listen";};speechSynthesis.speak(u);});};
+      const voice=pickVoice();
+      parts.forEach((p,i)=>speakDevice(p,voice,i===parts.length-1?()=>{on=false;if(document.body.contains(b))b.textContent="Listen";}:null));};
     return;}
   b.hidden=false; let speaking=false;
   b.onclick=async()=>{
@@ -1434,6 +1450,28 @@ async function checkUpdates(b){
     render(true);
   }catch(e){t.innerHTML=`<div class="notice err" style="margin-top:8px">Couldn't check for updates. Check your connection and try again.</div>`;t.hidden=false;b.disabled=false;b.textContent="Check for updates";}
 }
+const VOICE_SAMPLE="Durgapur is called the Ruhr of India. The Factories Act came into force in 1948.";
+function viewVoice(){
+  const vs=window.speechSynthesis?engVoices():[];const cur=S.voice||"";const auto=pickVoice();
+  const isNat=v=>voiceScore(v)>=30;
+  const row=(val,title,sub,nat)=>`<label class="li" style="cursor:pointer"><input type="radio" name="vc" value="${esc(val)}" ${cur===val?"checked":""} style="margin-right:10px"><span class="grow"><span class="t">${esc(title)}</span>${nat?' <span class="chip">Natural</span>':""}<br><span class="small muted">${esc(sub)}</span></span><button class="btn sm" data-test="${esc(val)}">▶ Test</button></label>`;
+  app.innerHTML=`<div class="stack"><a class="small" href="#more">‹ More</a><h1>Reading voice</h1>
+    <p class="small muted" style="margin:0">Used by 🔊 Read aloud on flashcards and Listen on lessons. Tap ▶ to hear each one.</p>
+    <div class="list">
+      ${row("","Automatic (recommended)",TTS?"Claude's voice":auto?"Best on this device: "+auto.name:"Your device's default voice",false)}
+      ${TTS?row("claude","Claude voice","Natural voice from Claude",true):""}
+      ${vs.map(v=>row(v.voiceURI,v.name,v.lang+(v.localService===false?" · online":" · on device"),isNat(v))).join("")}
+    </div>
+    ${vs.length&&!vs.some(isNat)&&!TTS?`<div class="card small"><b>Want a more natural voice?</b> Your device has only basic voices installed. On Android: Settings → search "Text-to-speech" → Preferred engine: <b>Speech Services by Google</b> → ⚙ → Install voice data → English (India), then pick a voice marked "network" if offered. On iPhone: Settings → Accessibility → Spoken Content → Voices → English → download an <b>Enhanced</b> or <b>Premium</b> voice. Reopen the app afterwards.</div>`:""}
+    <section class="card stack" style="gap:8px"><div class="sec-h"><h2>Speed</h2><span class="small muted" id="vrl">${voiceRate().toFixed(2)}×</span></div>
+      <input type="range" id="vrate" min="0.7" max="1.3" step="0.05" value="${voiceRate()}"><p class="small muted" style="margin:0">Slower helps with numbers and dates. Applies to your device's voices.</p></section>
+  </div>`;
+  app.querySelectorAll('input[name="vc"]').forEach(r=>r.onchange=()=>{S.voice=r.value;persist("s");say(VOICE_SAMPLE);});
+  app.querySelectorAll("[data-test]").forEach(b=>b.onclick=e=>{e.preventDefault();e.stopPropagation();say(VOICE_SAMPLE,b.dataset.test);});
+  const rg=$("#vrate");rg.oninput=()=>{$("#vrl").textContent=(+rg.value).toFixed(2)+"×";};rg.onchange=()=>{S.vrate=+rg.value;persist("s");say(VOICE_SAMPLE);};
+  if(window.speechSynthesis&&!vs.length){speechSynthesis.onvoiceschanged=()=>{speechSynthesis.onvoiceschanged=null;if(location.hash==="#voice")viewVoice();};}
+  if(!TTS&&window.claude&&claude.use&&!viewVoice.tried){viewVoice.tried=1;claude.use("tts").then(t=>{if(t){TTS=t;if(location.hash==="#voice")viewVoice();}}).catch(()=>{});}
+}
 function viewMore(){
   const news=(MAN.changelog||[]);
   const unseen=news.filter(c=>c.v>(S.seen||0)).length;
@@ -1443,6 +1481,7 @@ function viewMore(){
       <a class="li" href="#interview"><span class="grow"><span class="t">Interview prep</span><br><span class="small muted">15 marks · likely questions, answer outlines, timed practice</span></span><span class="muted">›</span></a>
       <a class="li" href="#crash"><span class="grow"><span class="t">Crash revision</span><br><span class="small muted">Your weakest sections first, cheat sheets, rapid quizzes</span></span><span class="muted">›</span></a>
       <a class="li" href="#notes"><span class="grow"><span class="t">My notes</span><br><span class="small muted">Answers you saved while asking doubts</span></span><span class="chip mute">${N.items.length}</span></a>
+      <a class="li" href="#voice"><span class="grow"><span class="t">Reading voice</span><br><span class="small muted">Choose the most natural voice and speed for Read aloud and Listen</span></span><span class="muted">›</span></a>
       <a class="li" href="#data"><span class="grow"><span class="t">Backup and restore</span><br><span class="small muted">Export or import your progress and notes</span></span><span class="muted">›</span></a>
     </div>
     <section class="card stack" style="gap:8px"><div class="sec-h"><h2>Course updates</h2><span class="small muted">Version ${MAN.version||1}</span></div>
@@ -1577,7 +1616,7 @@ function viewCards(){
   const nxt={again:"today",hard:lab(Math.max(1,Math.round(i*1.2))),good:lab(i<1?1:Math.round(i*2.3)),easy:lab(i<1?4:Math.round(i*3.2))};
   app.innerHTML=`<div class="stack">
     <div class="row" style="justify-content:space-between"><a class="small" href="#practice">‹ Practice</a><span class="small muted">${CQ.q.length} left · ${st?"review":"new"}</span></div>
-    <div class="row" style="justify-content:space-between;align-items:center"><span class="row" style="gap:6px"><button class="btn sm" id="spk" aria-label="Read aloud">🔊 Read aloud</button><button class="btn sm" id="mic" aria-label="Say your answer" ${canListen()?"":"hidden"}>🎤 Say answer</button></span><label class="small row" style="gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="autospk" ${S.cardSpeak?"checked":""}> Auto-read every card</label></div>
+    <div class="row" style="justify-content:space-between;align-items:center"><span class="row" style="gap:6px"><button class="btn sm" id="spk" aria-label="Read aloud">🔊 Read aloud</button><button class="btn sm" id="mic" aria-label="Say your answer" ${canListen()?"":"hidden"}>🎤 Say answer</button></span><a class="small" href="#voice" style="margin-left:auto;margin-right:10px">Voice</a><label class="small row" style="gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="autospk" ${S.cardSpeak?"checked":""}> Auto-read every card</label></div>
     <div class="fc" id="fc"><div class="small muted">${esc(r?r.l.title:"")}</div><div class="front">${esc(c.f)}</div>${CQ.show?`<div class="back">${esc(c.b)}</div>`:`<div class="small muted">Say the answer, then tap to check</div>`}<div class="said small" id="said" ${CQ.said?"":"hidden"}>${CQ.said?`You said: “${esc(CQ.said)}”`:""}</div>${CQ.show&&CQ.verdict?`<div class="verdict ${CQ.verdict.cls}">${CQ.verdict.msg}</div>`:""}</div>
     ${CQ.show?`<div class="rate">${["again","hard","good","easy"].map(k=>`<button class="btn ${(CQ.verdict?CQ.verdict.r===k:k==="easy")?"primary":""}" data-r="${k}">${k[0].toUpperCase()+k.slice(1)}<small>${nxt[k]}</small></button>`).join("")}</div>`:`<button class="btn primary" id="reveal">Show answer</button>`}
   </div>`;
