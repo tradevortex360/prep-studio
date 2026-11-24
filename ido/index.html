@@ -957,8 +957,10 @@ function viewPractice(){
 function viewProgress(){
   const st=stats(); const total=allLessonCount(); const done=Object.keys(S.done).length;
   const best=S.mocks.length?Math.max(...S.mocks.map(x=>x.pct)):null;
-  const by={};for(const k in S.qs){const r=QIDX[k];if(!r)continue;const b=by[r.mid]||(by[r.mid]={c:0,w:0});b.c+=S.qs[k].c;b.w+=S.qs[k].w;}
-  const rows=["m1","m2","m3","m4","m5","m6","m7","gs"].filter(k=>by[k]).map(k=>{const b=by[k];const a=Math.round(100*b.c/(b.c+b.w));return `<tr><td>${esc(SECNAME(k))}</td><td>${b.c+b.w}</td><td><span class="chip ${a>=75?"good":a>=50?"gold":"bad"}">${a}%</span></td></tr>`;}).join("");
+  const by={};for(const k in QIDX){const r=QIDX[k];const b=by[r.mid]||(by[r.mid]={n:0,t:0,c:0,w:0});b.n++;const q=S.qs[k];if(q){b.t++;b.c+=q.c;b.w+=q.w;}}
+  let allN=0,allT=0;for(const k in by){allN+=by[k].n;allT+=by[k].t;}
+  const rows=["m1","m2","m3","m4","m5","m6","m7","gs"].filter(k=>by[k]).map(k=>{const b=by[k];const m=modById(k);const a=b.c+b.w?Math.round(100*b.c/(b.c+b.w)):null;
+    return `<tr><td>${esc(SECNAME(k))}${m&&m.marks?`<br><span class="small muted">${m.marks} marks</span>`:""}</td><td><b>${b.t}</b><span class="muted"> / ${b.n}</span><div style="height:4px;background:var(--line);border-radius:2px;margin-top:4px"><div style="height:4px;width:${Math.round(100*b.t/b.n)}%;background:var(--accent);border-radius:2px"></div></div></td><td>${a==null?'<span class="muted">–</span>':`<span class="chip ${a>=75?"good":a>=50?"gold":"bad"}">${a}%</span><br><span class="small muted">${b.c} of ${b.c+b.w}</span>`}</td></tr>`;}).join("");
   const hist=S.mocks.slice(-6).reverse();
   const ti=todayIdx();
   app.innerHTML=`<div class="stack">
@@ -966,12 +968,12 @@ function viewProgress(){
     <section class="grid2 grid4">
       <div class="tile"><div class="k">Lessons done</div><div class="v">${done}<span class="muted small">/${total}</span></div></div>
       <div class="tile"><div class="k">Quiz accuracy</div><div class="v">${st.acc==null?"–":st.acc+"%"}</div></div>
-      <div class="tile"><div class="k">Questions answered</div><div class="v">${st.c+st.w}</div></div>
+      <div class="tile"><div class="k">Questions tried</div><div class="v">${allT}<span class="muted small">/${allN}</span></div></div>
       <div class="tile"><div class="k">Best mock</div><div class="v">${best==null?"–":best+"%"}</div></div>
     </section>
     <section class="card stack" style="gap:8px"><div class="sec-h"><h2>Study plan</h2><span class="small muted">${ti>=0&&ti<MAN.calendar.length?`Day ${ti+1} of ${MAN.calendar.length}`:""}</span></div><p class="small muted" style="margin:0">Your day-by-day calendar to 31 January. You can change the start date there.</p><div class="row"><a class="btn" href="#plan">Open study plan</a></div></section>
     <section class="stack" style="gap:8px"><h2>Accuracy by section</h2>
-      ${rows?`<div class="card" style="padding:4px 6px"><table class="facts"><tr><td><b>Section</b></td><td><b>Answered</b></td><td><b>Accuracy</b></td></tr>${rows}</table></div>`:`<p class="notice">Answer some questions and your accuracy for each section will show here.</p>`}</section>
+      ${allT?`<div class="card" style="padding:4px 6px"><table class="facts"><tr><td><b>Section</b></td><td><b>Tried / available</b></td><td><b>Accuracy</b></td></tr>${rows}</table></div><p class="small muted" style="margin:0">Tried = different questions you've answered at least once, out of all questions in that section (lessons + past papers). Accuracy counts every attempt, so "38 of 40" means 38 right answers in 40 attempts.</p>`:`<p class="notice">Answer some questions and your accuracy for each section will show here.</p>`}</section>
     <section class="stack" style="gap:8px"><h2>Mock history</h2>
       ${hist.length?`<div class="list">${hist.map(h=>`<div class="li"><span class="grow"><span class="t">${h.score} / ${h.total}${h.label?` · ${esc(h.label)}`:""}</span><br><span class="small muted">${new Date(h.ts).toLocaleDateString("en-IN",{day:"numeric",month:"short"})} · ${h.c} right · ${h.w} wrong · ${h.u} skipped</span></span><span class="chip ${h.pct>=60?"good":h.pct>=40?"gold":"bad"}">${h.pct}%</span></div>`).join("")}</div>`:`<p class="notice">No mocks yet. Your first one is scheduled on the plan.</p>`}</section>
   </div>`;
