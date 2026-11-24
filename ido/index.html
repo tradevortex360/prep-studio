@@ -217,6 +217,43 @@ input[type=date]{font:inherit;padding:6px 10px;border:1px solid var(--line);bord
 .bld .fl-row span,.bld .annex span{font-size:12px;opacity:.9}
 .bld .annex{display:flex;flex-direction:column;justify-content:center;padding:6px 8px;font-size:12.5px;line-height:1.25;border:2px dashed currentColor;border-left:0;border-radius:0 8px 8px 0;margin:3px 0}
 .bld .ground{height:6px;background:var(--muted);border-radius:3px;opacity:.5}
+.stepbar .sb-top{display:flex;justify-content:space-between;align-items:center}
+.stepbar .sb-dots{display:flex;gap:4px;margin-top:6px}.stepbar .sb-dots i{flex:1;height:5px;border-radius:3px;background:var(--line)}.stepbar .sb-dots i.d{background:var(--good)}.stepbar .sb-dots i.c{background:var(--accent)}
+.stepnav{display:flex;justify-content:space-between;gap:8px;margin-top:6px}
+.linkbtn{background:none;border:0;color:var(--accent);cursor:pointer;padding:0;font:inherit;text-decoration:underline}
+.pep{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:20px;font-size:14px;z-index:60;animation:pepin .3s ease}
+@keyframes pepin{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
+.cele{position:fixed;inset:0;pointer-events:none;z-index:70;overflow:hidden}
+.cele i{position:absolute;top:-10px;width:8px;height:14px;border-radius:2px;animation:fall 1.6s ease-in forwards}
+@keyframes fall{to{top:105%;transform:rotate(540deg)}}
+.cele-msg{position:absolute;left:50%;top:38%;transform:translateX(-50%);background:var(--good);color:#fff;font-weight:800;padding:12px 20px;border-radius:14px;font-size:17px;white-space:nowrap}
+.mg{display:grid;grid-template-columns:1fr 1fr;gap:8px}.mg-col{display:flex;flex-direction:column;gap:6px}
+.mg-it,.og{border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:8px 10px;text-align:left;font:inherit;font-size:13.5px;line-height:1.3;cursor:pointer;color:var(--ink)}
+.mg-it.sel{border-color:var(--accent);background:var(--accent-soft)}
+.mg-it.ok,.og.ok{border-color:var(--good);background:var(--good-soft);color:var(--good);cursor:default}
+.mg-it.no,.og.no{border-color:var(--bad);background:var(--bad-soft);animation:shake .35s}
+@keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.tl.gaming{padding-left:0;display:flex;flex-direction:column;gap:6px}.tl.gaming:before{display:none}
+.viz .play{margin-top:10px}
+.blur{filter:blur(6px);cursor:pointer;user-select:none}
+.sgn{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.sgn>div{display:flex;flex-direction:column;align-items:center;text-align:center;gap:3px}.sgn svg{width:72px;height:72px}.sgn b{font-size:13.5px}.sgn span{font-size:12px;color:var(--muted);line-height:1.25}
+.ft,.atom,.cir{display:flex;gap:14px;align-items:center;flex-wrap:wrap}.ft svg{width:220px;flex:none}.atom svg{width:180px;flex:none}
+.ftc{font-size:22px;font-weight:800;fill:var(--bad)}.fts{font-size:12px;fill:var(--muted)}.ftl{font-size:14px;font-weight:800;fill:var(--ink);letter-spacing:.05em}.atn{font-size:12px;font-weight:700;fill:var(--gold)}
+.ft-k{flex:1;min-width:180px;display:flex;flex-direction:column;gap:6px;font-size:13.5px}
+.thermo{width:100%;max-width:360px}.thv{font-size:13px;font-weight:700;fill:var(--ink)}.thl{font-size:13px;fill:var(--muted)}
+.prism{width:100%;max-width:440px}
+.dots{display:flex;flex-direction:column;gap:12px}.dg b{display:block;font-size:13px;margin-top:4px}
+.dd{display:flex;flex-wrap:wrap;gap:3px}.dd i{display:block;border-radius:50%;background:var(--accent)}
+.dd-l i{width:34px;height:34px;background:var(--bad)}.dd-m i{width:12px;height:12px;background:var(--gold)}.dd-s i{width:5px;height:5px;background:var(--muted)}
+.pyr{display:flex;flex-direction:column;align-items:center;gap:4px}.py{text-align:center;padding:9px 6px;border-radius:6px;font-size:13.5px;line-height:1.3}
+.tanks{display:flex;flex-wrap:wrap;align-items:flex-end;gap:0}.tk{flex:1;min-width:72px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:3px}
+.tank{width:54px;height:58px;border:3px solid var(--muted);border-top:0;border-radius:0 0 10px 10px;position:relative;overflow:hidden}.tank .lvl{position:absolute;left:0;right:0;bottom:0;height:70%;background:#7a8f6a}
+.tk b{font-size:13px}.tk span{font-size:11.5px;color:var(--muted);line-height:1.2}.pipe{display:none}
+.cir>div{flex:1;min-width:150px;display:flex;flex-direction:column;gap:3px}.cir svg{width:150px}.cir span{font-size:12.5px;color:var(--muted)}
+.sld{display:flex;flex-direction:column;gap:6px}.sld input{width:100%;accent-color:var(--accent)}.sl-lab{display:flex;justify-content:space-between;font-size:13.5px}
+.sl-bar{height:10px;border-radius:5px;background:var(--line);overflow:hidden}.sl-bar i{display:block;height:100%;transition:width .2s}
+.sl-big{font-size:20px;font-weight:800}.sl-small{font-size:13px;color:var(--muted)}.clk{width:120px;align-self:center}
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
 nav.tabs .in{max-width:760px;margin:0 auto;display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
 nav.tabs a{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px 9px;text-decoration:none;color:var(--muted);font-size:12px;font-weight:600}
@@ -630,7 +667,12 @@ function viewLesson(id){
     <a href="#module-${m.id}" class="small">‹ ${esc(m.title)}</a>
     <div><div class="eyebrow">Lesson ${idx+1} of ${m.lessons.length} · ${l.minutes} min read</div><h1 style="margin-top:4px">${esc(l.title)}</h1><p class="muted" style="margin:8px 0 0">${esc(l.summary)}</p></div>
     <div class="row"><button class="btn sm" id="listen" hidden>Listen</button><a class="btn sm" href="#quiz-${id}">Practice ${l.mcqs.length} questions</a></div>
-    <div class="lesson">${l.sections.map((s,i)=>`<h2>${esc(s.h)} <button class="askline" data-sec="${i}">Ask about this</button></h2>${s.html}`).join("")}</div>
+    <div class="stepbar" id="stepbar"></div>
+    <div class="lesson">${l.sections.map((s,i)=>`<section class="lsec" data-i="${i}"><h2>${esc(s.h)} <button class="askline" data-sec="${i}">Ask about this</button></h2>${s.html}</section>`).join("")}</div>
+    <div class="stepnav" id="stepnav"></div>
+    <section class="lsec wrap" data-i="${l.sections.length}">
+    <h2>Quick game: match the pairs</h2>
+    <div class="viz v-match" id="matchgame"></div>
     <h2>Key facts to memorise</h2>
     <div class="card" style="padding:4px 6px"><table class="facts">${l.facts.map(f=>`<tr><td>${esc(f[0])}</td><td>${esc(f[1])}</td></tr>`).join("")}</table></div>
     <h2>Exam traps</h2>
@@ -644,9 +686,10 @@ function viewLesson(id){
       <a class="btn" href="#quiz-${id}">Practise now</a>
       ${nextOk?`<a class="btn ghost" href="#lesson-${next.id}">Next lesson ›</a>`:""}
     </div>
+    </section>
   </article>`;
-  $("#markdone").onclick=()=>{if(S.done[id])delete S.done[id];else{S.done[id]=Date.now();bump(10);}persist("s");viewLesson(id);};
-  hydrateChecks();
+  $("#markdone").onclick=()=>{if(S.done[id])delete S.done[id];else{S.done[id]=Date.now();bump(10);celebrate("Lesson complete · +10 points");}persist("s");viewLesson(id);};
+  hydrateChecks(); setupSteps(id,l); matchGame($("#matchgame"),l);
   app.querySelectorAll(".askline").forEach(b=>b.onclick=()=>openAsk({lesson:l,section:l.sections[+b.dataset.sec].h}));
   $("#fab").hidden=false; $("#fab").onclick=()=>openAsk({lesson:l});
   setupListen(l);
@@ -1032,7 +1075,80 @@ function viewMore(){
   const lk=$("#lockbtn2"); if(lk)lk.onclick=()=>ENV.lock();
 }
 
+function celebrate(msg){
+  const w=document.createElement("div");w.className="cele";const cols=["var(--accent)","var(--gold)","var(--good)","var(--bad)"];
+  w.innerHTML=`<div class="cele-msg">${esc(msg)}</div>`+Array.from({length:26},(_,i)=>`<i style="left:${5+Math.random()*90}%;background:${cols[i%4]};animation-delay:${Math.random()*.25}s;transform:rotate(${Math.random()*180}deg)"></i>`).join("");
+  document.body.appendChild(w);setTimeout(()=>w.remove(),1900);
+}
+function setupSteps(id,l){
+  const secs=[...app.querySelectorAll(".lsec")];const n=secs.length;const bar=$("#stepbar"),nav=$("#stepnav");
+  S.pos=S.pos||{};let cur=Math.min(S.pos[id]||0,n-1);const all=!!S.stepAll;
+  const draw=()=>{
+    if(all||S.stepAll){secs.forEach(x=>x.hidden=false);bar.innerHTML=`<button class="btn sm ghost" id="stepmode">Read in bite-size parts</button>`;nav.innerHTML="";
+      $("#stepmode").onclick=()=>{S.stepAll=false;persist("s");viewLesson(id);};return;}
+    secs.forEach((x,i)=>x.hidden=i!==cur);
+    const mins=Math.max(1,Math.round(l.minutes*(n-1-cur)/n));
+    bar.innerHTML=`<div class="sb-top"><span class="small"><b>Part ${cur+1} of ${n}</b> · ${cur===n-1?"wrap-up":"about "+mins+" min left"}</span><button class="linkbtn small" id="stepmode">Show all</button></div><div class="sb-dots">${secs.map((_,i)=>`<i class="${i<cur?"d":i===cur?"c":""}"></i>`).join("")}</div>`;
+    nav.innerHTML=`${cur>0?`<button class="btn" id="sprev">‹ Back</button>`:"<span></span>"}${cur<n-1?`<button class="btn primary" id="snext">${cur===n-2?"Finish: game and recap ›":"Next part ›"}</button>`:""}`;
+    nav.hidden=cur===n-1&&cur===0;
+    const go=d=>{cur+=d;S.pos[id]=cur;persist("s");draw();bar.scrollIntoView({behavior:"smooth",block:"start"});if(d>0&&cur>0&&cur%2===0&&cur<n-1)toastPep();};
+    const p=$("#sprev"),q=$("#snext");if(p)p.onclick=()=>go(-1);if(q)q.onclick=()=>go(1);
+    $("#stepmode").onclick=()=>{S.stepAll=true;persist("s");draw();};
+    if(cur===n-1){const back=document.createElement("div");back.className="row";back.innerHTML=`<button class="btn sm" id="sprev2">‹ Back to the lesson</button>`;nav.innerHTML="";nav.appendChild(back);$("#sprev2").onclick=()=>go(-1);}
+  };
+  draw();
+}
+const PEPS=["Nice pace. Two parts down.","Halfway there. Stretch for 10 seconds?","You're doing well. Keep going.","Good focus. One more push."];
+function toastPep(){const t=document.createElement("div");t.className="pep";t.textContent=PEPS[Math.floor(Math.random()*PEPS.length)];document.body.appendChild(t);setTimeout(()=>t.remove(),2200);}
+function matchGame(box,l){
+  if(!box)return;const pool=shuffle(l.facts.map((f,i)=>({k:f[0],v:f[1],i}))).slice(0,4);
+  if(pool.length<2){box.hidden=true;return;}
+  const right=shuffle(pool.slice());let sel=null,done=0,miss=0;
+  box.innerHTML=`<div class="vh">Tap a fact on the left, then its value on the right</div><div class="mg"><div class="mg-col">${pool.map(p=>`<button class="mg-it" data-l="${p.i}">${esc(p.k)}</button>`).join("")}</div><div class="mg-col">${right.map(p=>`<button class="mg-it" data-r="${p.i}">${esc(p.v)}</button>`).join("")}</div></div><div class="vc" id="mgres"></div><button class="btn sm" id="mgnew" style="margin-top:8px">New set ↻</button>`;
+  box.querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>{if(b.classList.contains("ok"))return;box.querySelectorAll("[data-l]").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");sel=b.dataset.l;});
+  box.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{if(sel==null||b.classList.contains("ok"))return;const L=box.querySelector(`[data-l="${sel}"]`);
+    if(b.dataset.r===sel){L.classList.remove("sel");L.classList.add("ok");b.classList.add("ok");done++;sel=null;bump(1);
+      if(done===pool.length){$("#mgres").innerHTML=miss?`<b>All matched</b> with ${miss} slip${miss>1?"s":""}. Try a new set.`:"<b>Perfect!</b> All matched first time.";persist("s");}}
+    else{miss++;b.classList.add("no");setTimeout(()=>b.classList.remove("no"),450);}});
+  $("#mgnew").onclick=()=>matchGame(box,l);
+}
+const SLD={
+ fan:{t:"Fan speed",min:20,max:100,step:5,v:80,u:"%",f:v=>{const p=Math.pow(v/100,3)*100;return {big:`${p.toFixed(0)}% power`,small:`At ${v}% speed the fan draws ${p.toFixed(0)}% power (speed³). Saving: ${(100-p).toFixed(0)}%.`,bar:p};}},
+ wind:{t:"Wind speed (× normal)",min:1,max:3,step:0.1,v:2,u:"×",f:v=>{const p=Math.pow(v,3);return {big:`${p.toFixed(1)}× power`,small:`Wind ${v.toFixed(1)}× as fast gives ${p.toFixed(1)}× the power (v³).`,bar:Math.min(100,p/27*100)};}},
+ kmh:{t:"Speed in km/h",min:0,max:144,step:18,v:72,u:" km/h",f:v=>({big:`${(v*5/18).toFixed(0)} m/s`,small:`${v} × 5/18 = ${(v*5/18).toFixed(0)} m/s`,bar:v/144*100})},
+ temp:{t:"Temperature in °C",min:-50,max:150,step:1,v:37,u:" °C",f:v=>{const F=v*9/5+32,K=v+273;const tag=v===-40?"Celsius = Fahrenheit here":v===4?"Water is densest here":v===37?"Body temperature":v===100?"Water boils (sea level)":v===0?"Water freezes":"";return {big:`${F.toFixed(1)} °F · ${K} K`,small:`°F = 9/5 × ${v} + 32${tag?" · "+tag:""}`,bar:(v+50)/2};}},
+ ph:{t:"pH",min:0,max:14,step:0.5,v:7,u:"",f:v=>{const ex=[[1,"stomach acid"],[2,"lemon juice"],[3,"vinegar"],[5.5,"normal rain ~5.6"],[7,"pure water"],[7.5,"blood ~7.4"],[8.5,"baking soda"],[10,"soap"],[12.5,"bleach"],[14,"caustic soda"]];let b=ex[0];ex.forEach(e=>{if(Math.abs(e[0]-v)<Math.abs(b[0]-v))b=e;});
+   return {big:v<7?"Acidic":v>7?"Basic (alkaline)":"Neutral",small:`Near this pH: ${b[1]}. Each step is 10× stronger or weaker.`,bar:v/14*100,col:v<7?"var(--bad)":v>7?"var(--accent)":"var(--good)"};}},
+ ohm:{t:"Voltage (V) across a 6 Ω resistor",min:0,max:24,step:1,v:12,u:" V",f:v=>{const I=v/6;return {big:`${I.toFixed(1)} A · ${(v*I).toFixed(0)} W`,small:`I = V/R = ${v}/6 = ${I.toFixed(1)} A; P = V × I = ${(v*I).toFixed(0)} W`,bar:v/24*100};}},
+ interest:{t:"Years at 10% on ₹10,000",min:1,max:10,step:1,v:2,u:" yr",f:v=>{const si=10000*0.1*v,ci=10000*(Math.pow(1.1,v)-1);return {big:`SI ₹${si.toLocaleString("en-IN")} · CI ₹${Math.round(ci).toLocaleString("en-IN")}`,small:`Compound earns ₹${Math.round(ci-si).toLocaleString("en-IN")} more. 2 years: gap = P × r² = ₹100.`,bar:Math.min(100,ci/16000*100)};}},
+ clock:{t:"Clock time (minutes past 3:00)",min:0,max:55,step:5,v:30,u:" min",f:v=>{const H=3,ang=Math.abs(30*H-5.5*v),a=ang>180?360-ang:ang;let mh=11-H,mm=60-v;if(mm===60){mm=0;mh+=1;}return {big:`3:${String(v).padStart(2,"0")} → ${a}°`,small:`|30×3 − 5.5×${v}| = ${ang}°${ang>180?` → 360 − ${ang} = ${a}°`:""}. Mirror shows ${mh}:${String(mm).padStart(2,"0")}.`,bar:a/180*100,clock:[H,v]};}},
+};
+function hydrateSliders(){
+  app.querySelectorAll(".sld").forEach(d=>{if(d.dataset.ready)return;d.dataset.ready="1";const P=SLD[d.dataset.p];if(!P)return;
+    d.innerHTML=`${d.dataset.p==="clock"?'<svg class="clk" viewBox="0 0 120 120"><circle cx="60" cy="60" r="54" fill="var(--bg)" stroke="var(--ink)" stroke-width="3"/>'+Array.from({length:12},(_,i)=>`<line x1="60" y1="10" x2="60" y2="${i%3?15:19}" stroke="var(--ink)" stroke-width="2" transform="rotate(${i*30} 60 60)"/>`).join("")+'<line class="hh" x1="60" y1="60" x2="60" y2="32" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/><line class="mh" x1="60" y1="60" x2="60" y2="18" stroke="var(--accent)" stroke-width="3" stroke-linecap="round"/><circle cx="60" cy="60" r="4" fill="var(--ink)"/></svg>':""}<div class="sl-lab"><span>${P.t}</span><b class="sl-v"></b></div><input type="range" min="${P.min}" max="${P.max}" step="${P.step}" value="${P.v}"><div class="sl-bar"><i></i></div><div class="sl-big"></div><div class="sl-small"></div>`;
+    const inp=d.querySelector("input");const up=()=>{const v=+inp.value;const r=P.f(v);d.querySelector(".sl-v").textContent=(P.step<1?v.toFixed(1):v)+P.u;d.querySelector(".sl-big").textContent=r.big;d.querySelector(".sl-small").textContent=r.small;
+      const bar=d.querySelector(".sl-bar i");bar.style.width=Math.max(2,r.bar)+"%";bar.style.background=r.col||"var(--accent)";
+      if(r.clock){d.querySelector(".hh").setAttribute("transform",`rotate(${r.clock[0]*30+r.clock[1]*0.5} 60 60)`);d.querySelector(".mh").setAttribute("transform",`rotate(${r.clock[1]*6} 60 60)`);}};
+    inp.oninput=up;up();});
+}
+function hydrateGames(){
+  hydrateSliders();
+  app.querySelectorAll(".v-timeline").forEach(v=>{if(v.dataset.g)return;v.dataset.g="1";const items=[...v.querySelectorAll(".ti")];if(items.length<3)return;
+    const b=document.createElement("button");b.className="btn sm play";b.textContent="▶ Play: put these in order";v.appendChild(b);
+    b.onclick=()=>{const tl=v.querySelector(".tl");const orig=tl.innerHTML;const data=items.map((it,i)=>({i,y:it.querySelector(".y").innerHTML,x:it.querySelector(".x").innerHTML}));
+      let next=0,miss=0;const sh=shuffle(data.slice());
+      tl.innerHTML=`<div class="small muted" style="margin-bottom:6px">Tap the events from earliest to latest.</div>`+sh.map(d=>`<button class="og" data-i="${d.i}">${d.x}</button>`).join("");tl.classList.add("gaming");b.hidden=true;
+      tl.querySelectorAll(".og").forEach(o=>o.onclick=()=>{if(o.classList.contains("ok"))return;if(+o.dataset.i===next){o.classList.add("ok");o.innerHTML=`<b>${data[next].y}</b> · ${data[next].x}`;next++;bump(1);
+          if(next===data.length){const r=document.createElement("div");r.className="vc";r.innerHTML=(miss?`<b>Done</b> with ${miss} slip${miss>1?"s":""}.`:"<b>Perfect order!</b>")+` <button class="linkbtn" data-again>Show timeline</button>`;tl.appendChild(r);persist("s");
+            r.querySelector("[data-again]").onclick=()=>{tl.innerHTML=orig;tl.classList.remove("gaming");b.hidden=false;};}}
+        else{miss++;o.classList.add("no");setTimeout(()=>o.classList.remove("no"),450);}});};});
+  app.querySelectorAll(".v-ladder,.v-cards").forEach(v=>{if(v.dataset.g)return;v.dataset.g="1";
+    const sel=v.classList.contains("v-ladder")?".v":".k";const els=[...v.querySelectorAll(sel)];if(els.length<2)return;
+    const b=document.createElement("button");b.className="btn sm play";b.textContent="Test me: hide the numbers";v.appendChild(b);
+    b.onclick=()=>{const on=!v.classList.contains("hid");v.classList.toggle("hid",on);b.textContent=on?"Show all":"Test me: hide the numbers";els.forEach(e=>{e.classList.toggle("blur",on);e.onclick=on?()=>e.classList.remove("blur"):null;});};});
+}
 function hydrateDials(){
+  hydrateGames();
   app.querySelectorAll(".dial").forEach(d=>{if(d.dataset.ready)return;d.dataset.ready="1";const inp=d.querySelector("input"),nd=d.querySelector(".needle"),db=d.querySelector(".db"),tm=d.querySelector(".tm");
     const upd=()=>{const v=+inp.value;nd.style.transformOrigin="120px 120px";nd.style.transform=`rotate(${(v-80)/40*180-90}deg)`;db.textContent=v+" dB(A)";
       if(v>115){tm.textContent="Not allowed at any duration";tm.style.color="var(--bad)";}
