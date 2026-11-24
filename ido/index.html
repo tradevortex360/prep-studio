@@ -1120,7 +1120,10 @@ function viewData(){
     </section>
     ${ENV.lock?`<section class="card stack"><h2>This device</h2><p class="small muted" style="margin:0">Locking removes the saved access code from this browser. Your progress stays.</p><div class="row"><button class="btn" id="lockbtn">Lock this device</button></div></section>`:""}
   </div>`;
-  const dl=$("#dl"); if(dl)dl.onclick=()=>{const b=new Blob([payload()],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="ido-progress-"+new Date().toISOString().slice(0,10)+".json";document.body.appendChild(a);a.click();a.remove();$("#expmsg").textContent="Backup file downloaded.";};
+  const dl=$("#dl"); if(dl&&ENV.mode==="claude")dl.onclick=async()=>{const fn="ido-progress-"+new Date().toISOString().slice(0,10)+".json";const m=$("#expmsg");
+    try{const d=await claude.use("downloads");if(!d){m.textContent="Saving files isn't available here. Your progress is still saved automatically.";return;}await d.save({filename:fn,data:payload()});m.textContent="Backup file saved.";}
+    catch(e){m.textContent=e&&e.code==="declined"?"Save cancelled.":"Couldn't save the file here. Your progress is still saved automatically.";}};
+  else if(dl)dl.onclick=()=>{const b=new Blob([payload()],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="ido-progress-"+new Date().toISOString().slice(0,10)+".json";document.body.appendChild(a);a.click();a.remove();$("#expmsg").textContent="Backup file downloaded.";};
   $("#cp").onclick=async()=>{try{await navigator.clipboard.writeText(payload());$("#expmsg").textContent="Copied. Paste it into a note or file to keep it safe.";}catch(e){$("#expmsg").innerHTML=`Copy isn't allowed here. Select and copy this text:<textarea rows="4" style="width:100%;margin-top:6px" readonly>${esc(payload())}</textarea>`;}};
   const lk=$("#lockbtn"); if(lk)lk.onclick=()=>ENV.lock();
   $("#impfile").onchange=async e=>{const f=e.target.files[0];if(f)$("#imptext").value=await f.text();};
