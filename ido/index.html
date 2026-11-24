@@ -114,7 +114,8 @@ button.check{background:transparent;padding:0;cursor:pointer;font-family:inherit
 .srch .sr{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:6px;font-size:14px;line-height:1.45;background:var(--bg)}
 .srch .sr mark{background:var(--gold-soft);color:inherit;padding:0 1px;border-radius:3px}
 .srch .sr .sl{font-size:11.5px;color:var(--muted);margin-bottom:3px;display:flex;justify-content:space-between;gap:8px}
-.srch .sr a{font-size:12px;white-space:nowrap}
+.srch .sr{cursor:pointer}.srch .sr:hover,.srch .sr:focus{border-color:var(--accent);outline:none}
+.jumpflash{animation:jf 2.4s ease-out}@keyframes jf{0%,40%{background:var(--gold-soft);box-shadow:0 0 0 6px var(--gold-soft)}100%{background:transparent;box-shadow:none}}
 .sheet{position:fixed;left:0;right:0;bottom:0;z-index:31;max-width:760px;margin:0 auto;background:var(--surface);border-radius:16px 16px 0 0;border:1px solid var(--line);display:none;flex-direction:column;max-height:82vh}
 .sheet.open,.sheet-bg.open{display:flex}
 .sheet-bg.open{display:block}
@@ -783,19 +784,19 @@ function openAsk(o){
 function closeAsk(){$("#sheet").classList.remove("open");$("#sheetbg").classList.remove("open");if(ASK.ctrl)ASK.ctrl.abort();}
 $("#sheetclose").onclick=closeAsk;$("#sheetbg").onclick=closeAsk;
 let SIDX=null,STM=null;
-const STOP=new Set("a an the is are was were be been of in on at to for and or not no with by from as that this these those what which who whom why how when where does do did can could should would will shall may might it its i me my we our you your he she they them their than then there here into about under over between after before also only very more most less least any all some much many such per vs".split(" "));
+const STOP=new Set("a an the is are was were be been of in on at to for and or not no with by from as that this these those what which who whom why how when where does do did can could should would will shall may might it its i me my we our you your he she they them their than then there here into about under over between after before also only very more most less least any all some much many such per vs course explain tell please mean means meaning know need give get something thing things odd doubt question answer why".split(" "));
 function toks(t){return (t.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").match(/[a-z0-9][a-z0-9.+%₹/-]*/g)||[]).map(w=>w.replace(/[.\-/]+$/,"")).filter(w=>w&&!STOP.has(w));}
 function stem(w){return w.length>4?w.replace(/(ings|ing|ies|ied|es|s|ed|ly)$/,""):w;}
 function plain(h){const d=document.createElement("div");d.innerHTML=h.replace(/<!--viz-->[\s\S]*?<!--\/viz-->/g," ");return d.textContent.replace(/\s+/g," ").trim();}
 function buildSIDX(){
-  const E=[];const add=(t,kind,lid,href)=>{t=String(t||"").trim();if(t.length<12)return;E.push({t,kind,lid,href,w:new Set(toks(t).map(stem))});};
+  const E=[];const add=(t,kind,lid,href,sec)=>{t=String(t||"").trim();if(t.length<12)return;E.push({t,kind,lid,href,sec,w:new Set(toks(t).map(stem))});};
   for(const mid in MODS){(MODS[mid].lessons||[]).forEach(l=>{const href="#lesson-"+l.id;
-    (l.sections||[]).forEach(sec=>{const h=(sec.html||"").replace(/<!--viz-->[\s\S]*?<!--\/viz-->/g," ");
+    (l.sections||[]).forEach((sec,si)=>{const h=(sec.html||"").replace(/<!--viz-->[\s\S]*?<!--\/viz-->/g," ");
       const parts=h.split(/<\/(?:p|li|tr|div)>/i).map(plain).filter(x=>x.length>20);
-      parts.forEach(x=>add((sec.h?sec.h+": ":"")+x,"Lesson",l.id,href));});
-    (l.facts||[]).forEach(f=>add(f[0]+": "+f[1],"Key fact",l.id,href));
-    (l.cards||[]).forEach(f=>add(f[0]+": "+f[1],"Key fact",l.id,href));
-    (l.traps||[]).forEach(t=>add(t,"Exam trap",l.id,href));
+      parts.forEach(x=>add((sec.h?sec.h+": ":"")+x,"Lesson",l.id,href,si));});
+    (l.facts||[]).forEach(f=>add(f[0]+": "+f[1],"Key fact",l.id,href,999));
+    (l.cards||[]).forEach(f=>add(f[0]+": "+f[1],"Key fact",l.id,href,999));
+    (l.traps||[]).forEach(t=>add(t,"Exam trap",l.id,href,999));
     (l.mcqs||[]).forEach(q=>add(q.q+" Answer: "+q.o[q.a]+". "+(q.e||""),"Question",l.id,href));});}
   for(const k in QIDX){const r=QIDX[k];if(r.hard||!r.q||!r.q.o)continue;if(r.bank)add(r.q.q+" Answer: "+r.q.o[r.q.a]+". "+(r.q.e||""),"Question",r.lid,r.lid&&LIDX[r.lid]?"#lesson-"+r.lid:"");
     else if(r.pyq)add(r.q.q+" Answer: "+r.q.o[r.q.a]+". "+(r.q.e||""),"Past paper",r.lid,"");}
@@ -806,7 +807,7 @@ function searchCourse(q){
   if(!SIDX)buildSIDX();const qt=[...new Set(toks(q).map(stem))].filter(w=>w.length>1);if(!qt.length)return[];
   const idf=w=>Math.log(1+SIDX.N/(1+(SIDX.df[w]||0)));const ql=q.toLowerCase();
   const out=[];for(const e of SIDX.E){let sc=0,hit=0;for(const w of qt){if(e.w.has(w)){sc+=idf(w);hit++;}else if(w.length>=4){for(const x of e.w){if(x.startsWith(w)||(x.length>=4&&w.startsWith(x))){sc+=idf(w)*0.6;hit++;break;}}}}
-    if(!hit)continue;sc*=hit/qt.length;if(qt.length>1&&hit===qt.length)sc*=1.3;
+    if(!hit||(qt.length>=3&&hit/qt.length<0.5))continue;sc*=hit/qt.length;if(qt.length>1&&hit===qt.length)sc*=1.3;
     if(ASK.lesson&&e.lid===ASK.lesson.id)sc*=1.25;if(e.kind==="Key fact"||e.kind==="Exam trap")sc*=1.1;
     out.push({e,sc});}
   out.sort((a,b)=>b.sc-a.sc);const top=out[0]?out[0].sc:0;const seen=new Set();
@@ -818,8 +819,13 @@ function showSearch(){
   const q=$("#askinput").value.trim();const box=$("#srch");if(q.length<3){box.innerHTML="";return;}
   let res=[];try{res=searchCourse(q);}catch(e){}
   if(!res.length){box.innerHTML=`<div class="sh"><span>Nothing in the course matches yet. Ask Claude below.</span></div>`;return;}
-  box.innerHTML=`<div class="sh"><span>Found in your course</span><span>${res.length} match${res.length>1?"es":""}</span></div>`+res.map(x=>{const lm=x.e.lid&&LIDX[x.e.lid]?LIDX[x.e.lid].l.title:"";return `<div class="sr"><div class="sl"><span>${esc(x.e.kind)}${lm?" · "+esc(lm):""}</span>${x.e.href&&x.e.href!==location.hash?`<a href="${x.e.href}" data-close="1">Open ›</a>`:""}</div>${hl(x.e.t,q)}</div>`;}).join("")+`<div class="sh"><span>Not what you meant? Press ${ENV.mode==="gh"?"Ask Claude":"Send"}.</span></div>`;
-  box.querySelectorAll("[data-close]").forEach(a=>a.onclick=()=>closeAsk());
+  box.innerHTML=`<div class="sh"><span>Found in your course</span><span>${res.length} match${res.length>1?"es":""}</span></div>`+res.map(x=>{const lm=x.e.lid&&LIDX[x.e.lid]?LIDX[x.e.lid].l.title:"";return `<div class="sr" data-k="${SIDX.E.indexOf(x.e)}" role="button" tabindex="0"><div class="sl"><span>${esc(x.e.kind)}${lm?" · "+esc(lm):""}</span><span class="small" style="color:var(--accent);white-space:nowrap">${x.e.href?(x.e.sec===999?"See in key facts ›":x.e.sec!=null?"Go to this part ›":"Open lesson ›"):"Show in full ›"}</span></div><div class="st">${hl(x.e.t,q)}</div></div>`;}).join("")+`<div class="sh"><span>Not what you meant? Press ${ENV.mode==="gh"?"Ask Claude":"Send"}.</span></div>`;
+  box.querySelectorAll(".sr").forEach(c=>{const go=()=>{const e=SIDX.E[+c.dataset.k];if(!e)return;
+    if(!e.href){c.querySelector(".st").innerHTML=hl(e.t,"");c.querySelector(".sl span:last-child").textContent="";return;}
+    closeAsk();if(e.lid&&e.sec!=null){S.pos=S.pos||{};S.pos[e.lid]=e.sec;S.stepAll=false;}
+    window.JUMP={lid:e.lid,text:e.t.replace(/^[^:]{0,80}:\s/,"").slice(0,60)};
+    if(location.hash===e.href)render();else location.hash=e.href;};
+    c.onclick=go;c.onkeydown=ev=>{if(ev.key==="Enter")go();};});
 }
 $("#askinput").addEventListener("input",()=>{$("#askerr").textContent="";clearTimeout(STM);STM=setTimeout(showSearch,180);});
 $("#askinput").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("#askform").requestSubmit();}});
@@ -829,8 +835,11 @@ $("#askform").addEventListener("submit",async e=>{
   if(ENV.mode==="gh"){
     const ctx=ASK.extra?`Practice question:\n${ASK.extra}`:ASK.section?`Section: "${ASK.section}"`:"";
     const msg=`I'm preparing for the WBPSC Industrial Development Officer (IDO) exam (West Bengal). I'm studying the lesson "${ASK.lesson.title}". ${ctx}\n\nMy doubt: ${q}\n\nExplain in simple words (under 200 words), with an exam tip if useful.`;
-    window.open("https://claude.ai/new?q="+encodeURIComponent(msg.slice(0,1800)),"_blank","noopener");
-    $("#askinput").value="";$("#askerr").textContent="Opened in Claude. If the chat is empty, paste your doubt there.";return;
+    const er=$("#askerr");
+    er.innerHTML=`<div class="card stack" style="gap:8px;margin-top:6px;color:var(--ink)"><b>Leave the app and ask in claude.ai?</b><span class="small muted">It opens in a new tab. Check the matches above first: the answer may already be in your course.</span><div class="row"><button type="button" class="btn sm" id="askstay">Stay here</button><button type="button" class="btn sm primary" id="askgo">Open claude.ai</button></div></div>`;
+    $("#askstay").onclick=()=>{er.innerHTML="";$("#askinput").focus();};
+    $("#askgo").onclick=()=>{window.open("https://claude.ai/new?q="+encodeURIComponent(msg.slice(0,1800)),"_blank","noopener");$("#askinput").value="";$("#srch").innerHTML="";er.textContent="Opened in claude.ai. If the chat is empty, paste your doubt there.";};
+    return;
   }
   let sample=null; try{sample=window.claude&&claude.use?await claude.use("sample"):null;}catch(err){}
   if(!sample){$("#askerr").textContent="Asking isn't available in this view. Open the app from claude.ai while signed in.";return;}
@@ -1358,6 +1367,10 @@ function celebrate(msg){
   w.innerHTML=`<div class="cele-msg">${esc(msg)}</div>`+Array.from({length:26},(_,i)=>`<i style="left:${5+Math.random()*90}%;background:${cols[i%4]};animation-delay:${Math.random()*.25}s;transform:rotate(${Math.random()*180}deg)"></i>`).join("");
   document.body.appendChild(w);setTimeout(()=>w.remove(),1900);
 }
+function flashJump(id){const J=window.JUMP;if(!J||J.lid!==id)return;window.JUMP=null;const want=J.text.toLowerCase().replace(/\s+/g," ").slice(0,40);
+  const els=[...app.querySelectorAll(".lsec:not([hidden]) p, .lsec:not([hidden]) li, .lsec:not([hidden]) td, .lsec:not([hidden]) .box")];
+  const el=els.find(x=>x.textContent.toLowerCase().replace(/\s+/g," ").includes(want.slice(0,30)))||app.querySelector(".lsec:not([hidden])");
+  if(el){el.scrollIntoView({behavior:"smooth",block:"center"});el.classList.add("jumpflash");setTimeout(()=>el.classList.remove("jumpflash"),2600);}}
 function setupSteps(id,l){
   const secs=[...app.querySelectorAll(".lsec")];const n=secs.length;const bar=$("#stepbar"),nav=$("#stepnav");
   S.pos=S.pos||{};let cur=Math.min(S.pos[id]||0,n-1);const all=!!S.stepAll;
@@ -1375,6 +1388,7 @@ function setupSteps(id,l){
     if(cur===n-1){const back=document.createElement("div");back.className="row";back.innerHTML=`<button class="btn sm" id="sprev2">‹ Back to the lesson</button>`;nav.innerHTML="";nav.appendChild(back);$("#sprev2").onclick=()=>go(-1);}
   };
   draw();
+  if(window.JUMP)setTimeout(()=>flashJump(id),350);
 }
 const PEPS=["Nice pace. Two parts down.","Halfway there. Stretch for 10 seconds?","You're doing well. Keep going.","Good focus. One more push."];
 function toastPep(msg){const t=document.createElement("div");t.className="pep";t.textContent=msg||PEPS[Math.floor(Math.random()*PEPS.length)];document.body.appendChild(t);setTimeout(()=>t.remove(),2200);}
