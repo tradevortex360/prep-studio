@@ -109,6 +109,12 @@ button.check{background:transparent;padding:0;cursor:pointer;font-family:inherit
 /* ask sheet */
 .fab{position:fixed;right:16px;bottom:80px;z-index:20;box-shadow:0 6px 20px rgba(0,0,0,.18);border-radius:999px;padding:0 18px;min-height:48px}
 .sheet-bg{position:fixed;inset:0;background:rgba(10,15,25,.45);z-index:30;display:none}
+.srch{padding:0 16px;max-height:42vh;overflow:auto}.srch:empty{display:none}
+.srch .sh{font-size:12px;color:var(--muted);margin:8px 0 6px;display:flex;justify-content:space-between}
+.srch .sr{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:6px;font-size:14px;line-height:1.45;background:var(--bg)}
+.srch .sr mark{background:var(--gold-soft);color:inherit;padding:0 1px;border-radius:3px}
+.srch .sr .sl{font-size:11.5px;color:var(--muted);margin-bottom:3px;display:flex;justify-content:space-between;gap:8px}
+.srch .sr a{font-size:12px;white-space:nowrap}
 .sheet{position:fixed;left:0;right:0;bottom:0;z-index:31;max-width:760px;margin:0 auto;background:var(--surface);border-radius:16px 16px 0 0;border:1px solid var(--line);display:none;flex-direction:column;max-height:82vh}
 .sheet.open,.sheet-bg.open{display:flex}
 .sheet-bg.open{display:block}
@@ -448,9 +454,10 @@ window.PREP_ENV=(function(){
 <section class="sheet" id="sheet" aria-label="Ask a doubt">
   <header><h3 style="flex:1">Ask about this lesson</h3><button class="btn ghost sm" id="sheetclose">Close</button></header>
   <div class="msgs" id="msgs"></div>
+  <div id="srch" class="srch"></div>
   <div class="ctx" id="ctx"></div>
   <form id="askform">
-    <textarea id="askinput" rows="1" placeholder="Why is the 120% ceiling only for priority areas?"></textarea>
+    <textarea id="askinput" rows="1" placeholder="Type your doubt: the course is searched as you type"></textarea>
     <button class="btn primary" id="asksend" type="submit">Send</button>
   </form>
   <div class="err" id="askerr" style="padding:0 16px 10px"></div>
@@ -770,11 +777,51 @@ function openAsk(o){
   if(!ASK.history.length)$("#msgs").innerHTML=`<div class="notice">Ask anything about this lesson. I'll answer in simple words and you can save useful answers to your notes. This chat lasts while the app is open.</div>`;
   $("#sheet").classList.add("open");$("#sheetbg").classList.add("open");$("#askerr").textContent="";
   if(o.prefill){$("#askinput").value=o.prefill;}
+  $("#srch").innerHTML="";if(ENV.mode==="gh")$("#asksend").textContent="Ask Claude";if($("#askinput").value.trim())showSearch();
   setTimeout(()=>$("#askinput").focus(),50);
 }
 function closeAsk(){$("#sheet").classList.remove("open");$("#sheetbg").classList.remove("open");if(ASK.ctrl)ASK.ctrl.abort();}
 $("#sheetclose").onclick=closeAsk;$("#sheetbg").onclick=closeAsk;
-$("#askinput").addEventListener("input",()=>{$("#askerr").textContent="";});
+let SIDX=null,STM=null;
+const STOP=new Set("a an the is are was were be been of in on at to for and or not no with by from as that this these those what which who whom why how when where does do did can could should would will shall may might it its i me my we our you your he she they them their than then there here into about under over between after before also only very more most less least any all some much many such per vs".split(" "));
+function toks(t){return (t.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").match(/[a-z0-9][a-z0-9.+%₹/-]*/g)||[]).map(w=>w.replace(/[.\-/]+$/,"")).filter(w=>w&&!STOP.has(w));}
+function stem(w){return w.length>4?w.replace(/(ings|ing|ies|ied|es|s|ed|ly)$/,""):w;}
+function plain(h){const d=document.createElement("div");d.innerHTML=h.replace(/<!--viz-->[\s\S]*?<!--\/viz-->/g," ");return d.textContent.replace(/\s+/g," ").trim();}
+function buildSIDX(){
+  const E=[];const add=(t,kind,lid,href)=>{t=String(t||"").trim();if(t.length<12)return;E.push({t,kind,lid,href,w:new Set(toks(t).map(stem))});};
+  for(const mid in MODS){(MODS[mid].lessons||[]).forEach(l=>{const href="#lesson-"+l.id;
+    (l.sections||[]).forEach(sec=>{const h=(sec.html||"").replace(/<!--viz-->[\s\S]*?<!--\/viz-->/g," ");
+      const parts=h.split(/<\/(?:p|li|tr|div)>/i).map(plain).filter(x=>x.length>20);
+      parts.forEach(x=>add((sec.h?sec.h+": ":"")+x,"Lesson",l.id,href));});
+    (l.facts||[]).forEach(f=>add(f[0]+": "+f[1],"Key fact",l.id,href));
+    (l.cards||[]).forEach(f=>add(f[0]+": "+f[1],"Key fact",l.id,href));
+    (l.traps||[]).forEach(t=>add(t,"Exam trap",l.id,href));
+    (l.mcqs||[]).forEach(q=>add(q.q+" Answer: "+q.o[q.a]+". "+(q.e||""),"Question",l.id,href));});}
+  for(const k in QIDX){const r=QIDX[k];if(r.hard||!r.q||!r.q.o)continue;if(r.bank)add(r.q.q+" Answer: "+r.q.o[r.q.a]+". "+(r.q.e||""),"Question",r.lid,r.lid&&LIDX[r.lid]?"#lesson-"+r.lid:"");
+    else if(r.pyq)add(r.q.q+" Answer: "+r.q.o[r.q.a]+". "+(r.q.e||""),"Past paper",r.lid,"");}
+  if(IV)IV.cats.forEach(c=>c.qs.forEach(q=>add(q.q+" "+q.pts.join(" ")+" "+(q.trap||""),"Interview",null,"#interview")));
+  const df={};E.forEach(e=>e.w.forEach(w=>{df[w]=(df[w]||0)+1;}));SIDX={E,df,N:E.length};
+}
+function searchCourse(q){
+  if(!SIDX)buildSIDX();const qt=[...new Set(toks(q).map(stem))].filter(w=>w.length>1);if(!qt.length)return[];
+  const idf=w=>Math.log(1+SIDX.N/(1+(SIDX.df[w]||0)));const ql=q.toLowerCase();
+  const out=[];for(const e of SIDX.E){let sc=0,hit=0;for(const w of qt){if(e.w.has(w)){sc+=idf(w);hit++;}else if(w.length>=4){for(const x of e.w){if(x.startsWith(w)||(x.length>=4&&w.startsWith(x))){sc+=idf(w)*0.6;hit++;break;}}}}
+    if(!hit)continue;sc*=hit/qt.length;if(qt.length>1&&hit===qt.length)sc*=1.3;
+    if(ASK.lesson&&e.lid===ASK.lesson.id)sc*=1.25;if(e.kind==="Key fact"||e.kind==="Exam trap")sc*=1.1;
+    out.push({e,sc});}
+  out.sort((a,b)=>b.sc-a.sc);const top=out[0]?out[0].sc:0;const seen=new Set();
+  return out.filter(x=>x.sc>=top*0.45).filter(x=>{const k=x.e.t.slice(0,80);if(seen.has(k))return false;seen.add(k);return true;}).slice(0,6);
+}
+function hl(t,q){let s=t;if(s.length>320){const ws=toks(q).filter(w=>w.length>3);let i=-1;for(const w of ws){i=s.toLowerCase().indexOf(w.slice(0,5));if(i>=0)break;}const st=Math.max(0,i-90);s=(st?"… ":"")+s.slice(st,st+300)+(st+300<t.length?" …":"");}
+  let h=esc(s);toks(q).filter(w=>w.length>2).map(w=>w.length>5?w.slice(0,w.length-2):w).sort((a,b)=>b.length-a.length).forEach(w=>{h=h.replace(new RegExp("(\\b"+w.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"[a-z0-9]*)","gi"),"<mark>$1</mark>");});return h;}
+function showSearch(){
+  const q=$("#askinput").value.trim();const box=$("#srch");if(q.length<3){box.innerHTML="";return;}
+  let res=[];try{res=searchCourse(q);}catch(e){}
+  if(!res.length){box.innerHTML=`<div class="sh"><span>Nothing in the course matches yet. Ask Claude below.</span></div>`;return;}
+  box.innerHTML=`<div class="sh"><span>Found in your course</span><span>${res.length} match${res.length>1?"es":""}</span></div>`+res.map(x=>{const lm=x.e.lid&&LIDX[x.e.lid]?LIDX[x.e.lid].l.title:"";return `<div class="sr"><div class="sl"><span>${esc(x.e.kind)}${lm?" · "+esc(lm):""}</span>${x.e.href&&x.e.href!==location.hash?`<a href="${x.e.href}" data-close="1">Open ›</a>`:""}</div>${hl(x.e.t,q)}</div>`;}).join("")+`<div class="sh"><span>Not what you meant? Press ${ENV.mode==="gh"?"Ask Claude":"Send"}.</span></div>`;
+  box.querySelectorAll("[data-close]").forEach(a=>a.onclick=()=>closeAsk());
+}
+$("#askinput").addEventListener("input",()=>{$("#askerr").textContent="";clearTimeout(STM);STM=setTimeout(showSearch,180);});
 $("#askinput").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("#askform").requestSubmit();}});
 $("#askform").addEventListener("submit",async e=>{
   e.preventDefault(); const q=$("#askinput").value.trim();
