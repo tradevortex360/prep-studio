@@ -170,6 +170,13 @@ input[type=date]{font:inherit;padding:6px 10px;border:1px solid var(--line);bord
 .sp .sp-key{border-left:3px solid #e3ad55;padding-left:8px;background:rgba(227,173,85,.08)}
 .sp .sp-p{color:var(--muted);text-align:center;padding:0}
 .sp .now{background:rgba(227,173,85,.25)}
+[lang="bn"],.bnt,.bnpop{font-family:"Noto Sans Bengali","Hind Siliguri","Kohinoor Bangla","Bangla Sangam MN",var(--font-ui)}
+.lesson .bnt{color:var(--gold);font-size:.86em;cursor:pointer;white-space:nowrap;border-bottom:1px dotted var(--gold)}
+.bnpop{position:fixed;z-index:60;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;max-width:300px;box-shadow:0 8px 30px rgba(0,0,0,.25);font-size:15px;line-height:1.6}
+.bnpop .bnw{color:var(--gold);font-size:17px}
+.bnans{font-size:17px;line-height:1.85}.bnpass{font-size:18px;line-height:1.95}
+.bngl td:first-child{width:38%}
+.inp{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit}
 .rate .btn small{white-space:nowrap}
 .rate .btn.primary small{color:inherit;opacity:.75}
 .rate{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
@@ -299,7 +306,7 @@ nav.tabs a .badge{position:absolute;margin-left:18px;margin-top:-2px;min-width:1
 </style>
 <script>
 window.PREP_ENV=(function(){
-  const CFG={"clientId": "1051177919991-lfq04am73d56tti2seefav5v0a7em48d.apps.googleusercontent.com", "stats": {"modules": 7, "lessons": 70, "lessonQ": 803, "bankQ": 979, "hardQ": 119, "pastQ": 377, "cards": 1706, "visuals": 161, "interviewQ": 28}};
+  const CFG={"clientId": "1051177919991-lfq04am73d56tti2seefav5v0a7em48d.apps.googleusercontent.com", "stats": {"modules": 7, "lessons": 70, "lessonQ": 803, "bankQ": 979, "hardQ": 119, "pastQ": 377, "cards": 1706, "visuals": 161, "bnTerms": 1357, "interviewQ": 28}};
   const LSK="ps_ido_";
   const te=new TextEncoder(), td=new TextDecoder();
   const b64d=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
@@ -354,7 +361,8 @@ window.PREP_ENV=(function(){
         ${row("🎯","Exam-true mock tests","100 questions in 90 minutes with the exam's section split and −0.25 marking. Time-trap questions train you to skip fast, and a time report shows where your minutes went.")}
         ${row("🧠","Remember more with less effort","Flashcards on a spaced-repetition schedule, match games, put-in-order timelines and printable cheat sheets.")}
         ${row("📅","A day-by-day plan to the exam","Each day's lesson, practice and revision, with a daily goal ring, streaks, speed drills and a crash-revision mode for the final weeks.")}
-        ${row("🎤","Interview prep (15 marks)","Likely questions with answer outlines, official selection rules and timed practice, including Bengali.")}
+        ${row("🎤","Interview prep (15 marks)","Likely questions with answer outlines, official selection rules and timed practice.")}
+        ${row("🗣️","Bengali for the interview","The exact Bengali name of "+(T.bnTerms?fmt(T.bnTerms)+" ":"")+"key terms shown right beside the English, model interview answers in spoken Bengali with voice, and reading, writing and translation practice.")}
       </div>
       <div class="card stack" style="gap:8px;background:var(--good-soft,#e9f6ee);border-color:transparent">
         <div class="eyebrow" style="color:var(--good)">Why you can trust it</div>
@@ -529,6 +537,7 @@ async function loadContent(force){
     });
   }catch(e){PYQ=null;}
   try{IV=await get("interview.json");}catch(e){IV=null;}
+  try{BN=MAN.bn?await get(MAN.bn):null;}catch(e){BN=null;}
   BANKN={};
   if(MAN.hard){try{const arr=await get(MAN.hard);arr.forEach(q=>{QIDX[q.id]={q,lid:q.lid,mid:q.mid,hard:true};HARDN++;});}catch(e){console.warn("hard pool failed");}}
   await Promise.all((MAN.banks||[]).map(async f=>{try{const arr=await get(f);arr.forEach(q=>{QIDX[q.id]={q,lid:q.lid,mid:q.mid,bank:true};BANKN[q.mid]=(BANKN[q.mid]||0)+1;});}catch(e){console.warn("bank failed",f);}}));
@@ -661,7 +670,7 @@ function render(soft){
   const {v,a}=parseHash();
   if(MOCK&&MOCK.timer&&v!=="mock"){/* keep timer running */}
   CUR_LESSON=null; $("#fab").hidden=true;
-  const TAB={interview:"more",sheet:"learn",crash:"practice",drill:"practice",cards:"practice",numbers:"learn",home:"today",learn:"learn",module:"learn",lesson:"learn",practice:"practice",quiz:"practice",mock:"practice",papers:"practice",paper:"practice",weak:"practice",progress:"progress",plan:"progress",more:"more",notes:"more",data:"more"};
+  const TAB={bangla:"more",interview:"more",sheet:"learn",crash:"practice",drill:"practice",cards:"practice",numbers:"learn",home:"today",learn:"learn",module:"learn",lesson:"learn",practice:"practice",quiz:"practice",mock:"practice",papers:"practice",paper:"practice",weak:"practice",progress:"progress",plan:"progress",more:"more",notes:"more",data:"more"};
   const cur=TAB[v]||"today"; document.querySelectorAll("nav.tabs a").forEach(a=>{a.classList.toggle("on",a.dataset.tab===cur);if(a.dataset.tab===cur)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current");});
   if(v==="module")return viewModule(a);
   if(v==="lesson")return viewLesson(a);
@@ -672,6 +681,7 @@ function render(soft){
   if(v==="crash")return viewCrash();
   if(v==="interview")return viewInterview(a);
   if(v==="voice")return viewVoice();
+  if(v==="bangla")return viewBangla(a);
   if(v==="weak")return viewWeak();
   if(v==="notes")return viewNotes();
   if(v==="plan")return viewPlan();
@@ -736,6 +746,7 @@ function viewHome(){
     ${nl?`<section class="card"><div class="eyebrow">Continue learning</div><h3 style="margin:6px 0 4px">${esc(nl.l.title)}</h3><p class="small muted" style="margin:0 0 10px">${esc(nl.m.title)}</p><a class="btn primary" href="#lesson-${nextId}">Open lesson</a></section>`:""}
     ${(()=>{const dk=deck();const n=dk.due.length+dk.fresh.length;const pts=todayPts();const pl=syncPlanDone();const st=pl?planStreak():streak();const frac=pl?pl.d/pl.t:pts/GOAL;return `<section class="card row" style="gap:16px;align-items:center">${ringSvg(frac)}<div class="grow" style="flex:1;min-width:0"><div class="eyebrow">Today's plan</div><div style="font-weight:700;font-size:17px">${pl?(pl.d>=pl.t?"Today's plan complete":`${pl.d} of ${pl.t} done`):(pts>=GOAL?"Goal reached today":`${Math.max(0,GOAL-pts)} points to go`)}</div><div class="small muted">Points today: ${pts} · Streak: ${st} day${st===1?"":"s"}${pl?" with the full plan done":""}</div></div></section>
     <a class="card" href="#cards" style="text-decoration:none;color:var(--ink);display:flex;align-items:center;gap:12px"><span style="flex:1"><span class="eyebrow">Flashcards</span><br><b style="font-size:17px">${n?`${n} card${n>1?"s":""} to review today`:dk.total?"All caught up for today":"Your deck is empty"}</b><br><span class="small muted">${dk.total?`${dk.learned} of ${dk.total} facts learned`:"Finish a lesson to add its key facts"}</span></span><span class="btn sm ${n?"primary":""}">${n?"Start":"Open"}</span></a>`;})()}
+    ${BN?(()=>{const bd=bnDeck();const bn=bd.due.length+bd.fresh.length;return `<a class="card" href="#bangla" style="text-decoration:none;color:var(--ink);display:flex;align-items:center;gap:12px"><span style="flex:1"><span class="eyebrow">বাংলা · interview Bengali</span><br><b style="font-size:17px" lang="bn">${bn?`আজ ${bn}টি বাংলা শব্দ`:"বাংলা শব্দ, উত্তর, পড়া ও লেখা"}</b><br><span class="small muted">${bd.total?`${bd.learned} of ${bd.total} terms learned`:"Exact Bengali names of the terms you study"}</span></span><span class="btn sm ${bn?"primary":""}">Open</span></a>`;})():""}
   </div>`;
   const sto=$("#showtoday");if(sto)sto.onclick=()=>{$("#todaybox").hidden=!$("#todaybox").hidden;sto.textContent=$("#todaybox").hidden?"Show today":"Hide today";};
   const ao=$("#aheadon");if(ao)ao.onclick=()=>{S.ahead=1;persist("s");viewHome();};
@@ -783,13 +794,14 @@ function viewLesson(id){
   app.innerHTML=`<article class="stack">
     <a href="#module-${m.id}" class="small">‹ ${esc(m.title)}</a>
     <div><div class="eyebrow">Lesson ${idx+1} of ${m.lessons.length} · ${l.minutes} min read</div><h1 style="margin-top:4px">${esc(l.title)}</h1><p class="muted" style="margin:8px 0 0">${esc(l.summary)}</p></div>
-    <div class="row" style="flex-wrap:wrap;gap:6px"><button class="btn sm" id="listen" hidden>Listen</button><button class="btn sm" id="script" hidden>📝 Spoken script</button><a class="btn sm" href="#quiz-${id}">Practice ${l.mcqs.length} questions</a></div><div id="scriptpanel" class="sp card" hidden></div>
+    <div class="row" style="flex-wrap:wrap;gap:6px"><button class="btn sm" id="listen" hidden>Listen</button><button class="btn sm" id="script" hidden>📝 Spoken script</button><button class="btn sm" id="bntog" hidden lang="bn">বাংলা</button><a class="btn sm" href="#quiz-${id}">Practice ${l.mcqs.length} questions</a></div><div id="scriptpanel" class="sp card" hidden></div>
     <div class="stepbar" id="stepbar"></div>
     <div class="lesson">${l.sections.map((s,i)=>`<section class="lsec" data-i="${i}"><h2>${esc(s.h)} <button class="askline" data-sec="${i}">Ask about this</button></h2>${s.html}</section>`).join("")}</div>
     <div class="stepnav" id="stepnav"></div>
     <section class="lsec wrap" data-i="${l.sections.length}">
     <h2>Quick game: match the pairs</h2>
     <div class="viz v-match" id="matchgame"></div>
+    ${bnGlossHtml(id)}
     <h2>Key facts to memorise</h2>
     <div class="card" style="padding:4px 6px"><table class="facts">${l.facts.map(f=>`<tr><td>${esc(f[0])}</td><td>${esc(f[1])}</td></tr>`).join("")}</table></div>
     <h2>Exam traps</h2>
@@ -809,8 +821,183 @@ function viewLesson(id){
   hydrateChecks(); setupSteps(id,l); matchGame($("#matchgame"),l);
   app.querySelectorAll(".askline").forEach(b=>b.onclick=()=>openAsk({lesson:l,section:l.sections[+b.dataset.sec].h}));
   $("#fab").hidden=false; $("#fab").onclick=()=>openAsk({lesson:l});
-  setupListen(l);
+  setupListen(l);setupBnLesson(l);
 }
+/* ---------- বাংলা: Bengali terms, voice, flashcards, interview, reading, writing ---------- */
+let BN=null;
+function bnTerms(lid){return (BN&&BN.terms&&BN.terms[lid])||[];}
+function bnAllTerms(){const out=[];if(!BN||!BN.terms)return out;for(const lid in BN.terms)BN.terms[lid].forEach((t,i)=>out.push(Object.assign({lid,i},t)));return out;}
+function escRe(s){return s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");}
+/* show the Bengali beside the first mention of each term in the lesson */
+function bnAnnotate(root,lid){if(!root)return;root.querySelectorAll(".bnt").forEach(x=>x.remove());if(!S.bnOn)return;
+  const terms=bnTerms(lid).map((t,i)=>Object.assign({i},t)).filter(t=>t.match).sort((a,b)=>b.match.length-a.match.length);const used=new Set();
+  terms.forEach(t=>{const re=new RegExp("(^|[^A-Za-z0-9])("+escRe(t.match)+")(?![A-Za-z0-9])","i");
+    const tw=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>{const p=n.parentElement;if(!p||p.closest(".viz,svg,button,.bnt,script,style,.qc ol,.askline,a,.bngl,.stepbar,.stepnav,#matchgame,.notice"))return 3;return re.test(n.nodeValue)?1:3;}});
+    const n=tw.nextNode();if(!n||used.has(t.i))return;used.add(t.i);
+    const m=re.exec(n.nodeValue);const end=m.index+m[1].length+m[2].length;const after=n.splitText(end);
+    const sp=document.createElement("span");sp.className="bnt";sp.lang="bn";sp.textContent=" ("+t.bn+")";sp.dataset.i=t.i;
+    sp.onclick=e=>{e.stopPropagation();bnPop(sp,t);};n.parentNode.insertBefore(sp,after);});}
+function bnPop(anchor,t){document.querySelectorAll(".bnpop").forEach(x=>x.remove());const d=document.createElement("div");d.className="bnpop";d.lang="bn";
+  d.innerHTML=`<b>${esc(t.en)}</b> → <b class="bnw">${esc(t.bn)}</b>${t.alt&&t.alt.length?`<div class="small">অন্য নাম: ${esc(t.alt.join(", "))}</div>`:""}${t.note?`<div class="small">${esc(t.note)}</div>`:""}${t.usage==="en"?`<div class="small muted">কথায় সাধারণত ইংরেজি শব্দটিই বলা হয়</div>`:""}<div class="row" style="gap:6px;margin-top:6px"><button class="btn sm" data-say>🔊 শুনুন</button><button class="btn sm ghost" data-x>বন্ধ</button></div>`;
+  document.body.appendChild(d);const r=anchor.getBoundingClientRect();d.style.top=Math.min(window.innerHeight-d.offsetHeight-10,r.bottom+6)+"px";d.style.left=Math.max(8,Math.min(window.innerWidth-d.offsetWidth-8,r.left-20))+"px";
+  d.querySelector("[data-say]").onclick=()=>sayBn(t.bn+(t.alt&&t.alt.length?"। অন্য নাম "+t.alt.join(", "):""));d.querySelector("[data-x]").onclick=()=>d.remove();
+  setTimeout(()=>document.addEventListener("click",function f(e){if(!d.contains(e.target)){d.remove();document.removeEventListener("click",f);}}),0);}
+function bnGlossHtml(lid){const ts=bnTerms(lid);if(!ts.length)return "";
+  return `<h2>বাংলায় মূল শব্দ <span class="small muted" style="font-weight:400">(${ts.length})</span></h2><div class="card" style="padding:4px 6px" lang="bn"><table class="facts bngl">${ts.map(t=>`<tr><td>${esc(t.en)}</td><td><b>${esc(t.bn)}</b>${t.alt&&t.alt.length?`<span class="small muted"> · ${esc(t.alt.join(", "))}</span>`:""}${t.note?`<div class="small muted">${esc(t.note)}</div>`:""}</td></tr>`).join("")}</table></div>`;}
+function setupBnLesson(l){const b=$("#bntog");if(!b)return;const ts=bnTerms(l.id);if(!ts.length){b.hidden=true;return;}b.hidden=false;
+  const lab=()=>{b.textContent=S.bnOn?"বাংলা ✓":"বাংলা";b.classList.toggle("primary",!!S.bnOn);};lab();
+  bnAnnotate(app.querySelector("article"),l.id);
+  b.onclick=()=>{S.bnOn=S.bnOn?0:1;persist("s");lab();bnAnnotate(app.querySelector("article"),l.id);if(S.bnOn)toastPep("Bengali names shown beside key terms. Tap one for details.");};}
+
+/* Bengali voice: Claude's voice if it speaks Bengali here, else the device's Bengali voice */
+function bnVoice(){try{const vs=speechSynthesis.getVoices().filter(v=>/^bn/i.test(v.lang));vs.sort((a,b)=>(/IN/i.test(b.lang)?2:0)+(b.localService===false?1:0)-((/IN/i.test(a.lang)?2:0)+(a.localService===false?1:0)));return vs[0]||null;}catch(e){return null;}}
+function bnVoiceOk(){return !!(TTS||bnVoice());}
+async function sayBn(text,onDone){stopSay();const my=SPK;const t=String(text||"").replace(/\s+/g," ").trim();if(!t)return;
+  if(!TTS&&window.claude&&claude.use){try{TTS=await claude.use("tts");}catch(e){TTS=null;}}
+  if(TTS&&!(S.voice&&S.voice!=="claude")){try{await TTS.speak([{text:t.slice(0,1800),language:"bn"}]);if(my===SPK&&onDone)onDone();return;}catch(e){}}
+  const v=bnVoice();if(!v||!window.speechSynthesis){toastPep("No Bengali voice on this phone. Android: Settings → Text-to-speech → Speech Services by Google → Install voice data → Bengali (India).");if(onDone)onDone();return;}
+  const parts=t.match(/[^।.!?]+[।.!?]*/g)||[t];parts.forEach((p,i)=>{const u=new SpeechSynthesisUtterance(p.trim());u.voice=v;u.lang=v.lang;u.rate=voiceRate();if(i===parts.length-1&&onDone)u.onend=()=>{if(my===SPK)onDone();};speechSynthesis.speak(u);});}
+function canListenBn(){return !!SRclass();}
+/* Bengali answer check: normalise and compare against the main name and every other name */
+function bnNorm(s){return String(s||"").normalize("NFC").replace(/[‌‍]/g,"").replace(/[^ঀ-৿a-z0-9\s]/gi," ").replace(/\s+/g," ").trim().toLowerCase();}
+function bnMatch(said,t){const s=bnNorm(said);if(!s)return 0;let best=0;[t.bn].concat(t.alt||[]).forEach(v=>{const w=bnNorm(v);if(!w)return;if(s.includes(w)){best=1;return;}
+  const sw=s.split(" "),ww=w.split(" ");const hit=ww.filter(x=>sw.some(y=>y===x||(x.length>2&&lev(x,y)<=Math.floor(x.length/4)))).length/ww.length;const whole=1-lev(s,w)/Math.max(s.length,w.length);best=Math.max(best,hit,whole);});return best;}
+
+/* ---- screens ---- */
+function viewBangla(a){
+  if(!BN){app.innerHTML=`<div class="stack"><a class="small" href="#more">‹ More</a><p class="notice">Bengali material didn't load. Tap Check for updates in More.</p></div>`;return;}
+  if(a==="cards")return viewBnCards();if(a==="gloss")return viewBnGloss();if(a&&a.startsWith("iv"))return viewBnIv(a.slice(2));
+  if(a&&a.startsWith("read"))return viewBnRead(a.slice(4));if(a&&a.startsWith("write"))return viewBnWrite(a.slice(5));if(a==="tr")return viewBnTr();if(a==="phr")return viewBnPhrases();
+  const dk=bnDeck();const n=dk.due.length+dk.fresh.length;const all=bnAllTerms().length;S.bniv=S.bniv||{};const ivd=(BN.interview?BN.interview.items:[]).filter(x=>S.bniv[x.id]==="g").length;
+  app.innerHTML=`<div class="stack" lang="bn"><a class="small" href="#more">‹ More</a>
+    <div><div class="eyebrow">ইন্টারভিউয়ের জন্য বাংলা</div><h1>বাংলা</h1><p class="muted" style="margin:6px 0 0">The interview may be in Bengali, and the board can ask what any item is called in Bengali. Learn the exact Bengali names, answer in Bengali, and practise reading and writing.</p></div>
+    ${bnVoiceOk()?"":`<div class="card small"><b>No Bengali voice on this phone yet.</b> Android: Settings → Text-to-speech → Speech Services by Google → Install voice data → <b>Bengali (India)</b>. iPhone: Settings → Accessibility → Spoken Content → Voices → Bangla.</div>`}
+    <div class="list">
+      <a class="li" href="#bangla-cards"><span class="grow"><span class="t">শব্দ কার্ড · Bengali term cards</span><br><span class="small muted">English term → exact Bengali name, spaced repetition, with voice</span></span><span class="chip ${n?"gold":"mute"}">${n} today</span></a>
+      <a class="li" href="#bangla-gloss"><span class="grow"><span class="t">শব্দকোষ · Full glossary</span><br><span class="small muted">${all} terms by lesson, searchable in English or Bengali</span></span><span class="muted">›</span></a>
+      <a class="li" href="#bangla-iv"><span class="grow"><span class="t">বাংলায় ইন্টারভিউ · Interview in Bengali</span><br><span class="small muted">${BN.interview?BN.interview.items.length:0} questions with model answers to hear and practise (${ivd} confident)</span></span><span class="muted">›</span></a>
+      <a class="li" href="#bangla-phr"><span class="grow"><span class="t">কাজের কথা · Useful interview phrases</span><br><span class="small muted">Polite openings, asking to repeat, buying time</span></span><span class="muted">›</span></a>
+      <a class="li" href="#bangla-read"><span class="grow"><span class="t">পড়া · Reading practice</span><br><span class="small muted">${(BN.reading||[]).length} notices, circulars and reports to read aloud, with questions</span></span><span class="muted">›</span></a>
+      <a class="li" href="#bangla-write"><span class="grow"><span class="t">লেখা · Writing practice</span><br><span class="small muted">${(BN.writing||[]).length} tasks: reports, letters, notices, summaries, with model answers</span></span><span class="muted">›</span></a>
+      <a class="li" href="#bangla-tr"><span class="grow"><span class="t">অনুবাদ · Translation drills</span><br><span class="small muted">${(BN.translate||[]).length} English sentences to say or write in Bengali</span></span><span class="muted">›</span></a>
+    </div>
+    <p class="small muted">On any lesson, tap <b>বাংলা</b> to see the Bengali name beside each key term.</p></div>`;}
+
+function bnDeck(){const today=dayNum();const st=S.bncards||{};const done=new Set(Object.keys(S.done||{}));
+  const pool=bnAllTerms().filter(t=>S.bnAllCards||done.has(t.lid)).map(t=>({id:"bn:"+t.lid+":"+t.i,t}));
+  const due=pool.filter(c=>st[c.id]&&st[c.id].d<=today);const nt=(S.bnNewDay&&S.bnNewDay.d===today)?S.bnNewDay.n:0;
+  const fresh=pool.filter(c=>!st[c.id]).slice(0,Math.max(0,(S.bnPerDay||15)-nt));return {due,fresh,total:pool.length,learned:pool.filter(c=>st[c.id]).length};}
+function bnRate(c,r){const today=dayNum();S.bncards=S.bncards||{};const old=S.bncards[c.id];let i=old?old.i:0;
+  if(r==="again")i=0;else if(r==="hard")i=Math.max(1,Math.round(i*1.2));else if(r==="good")i=i<1?1:Math.round(i*2.3);else i=i<1?4:Math.round(i*3.2);
+  S.bncards[c.id]={i,d:today+(r==="again"?0:i)};if(!old)S.bnNewDay=(S.bnNewDay&&S.bnNewDay.d===today)?{d:today,n:S.bnNewDay.n+1}:{d:today,n:1};bump(1);persist("s");}
+let BQ=null;
+function viewBnCards(){
+  if(!BQ||BQ.day!==dayNum()){const dk=bnDeck();BQ={day:dayNum(),q:shuffle(dk.due).concat(dk.fresh),done:0,show:false};}
+  const dk=bnDeck();
+  if(!BQ.q.length){app.innerHTML=`<div class="stack"><a class="small" href="#bangla">‹ বাংলা</a><h1>শব্দ কার্ড</h1>
+    <div class="card"><b>${dk.total?"All caught up for today.":"No Bengali cards yet."}</b><p class="small muted" style="margin:6px 0 0">${dk.total?`${dk.learned} of ${dk.total} terms in rotation.`:"Terms are added from lessons you've marked as done. You can also add every lesson's terms now."}</p></div>
+    <label class="card row" style="gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="bnall" ${S.bnAllCards?"checked":""}><span class="small">Include terms from all lessons, not just finished ones</span></label>
+    <div class="card row" style="justify-content:space-between;align-items:center"><span class="small">New cards a day</span><span class="row" style="gap:6px">${[10,15,30].map(n=>`<button class="btn sm ${(S.bnPerDay||15)===n?"primary":""}" data-npd="${n}">${n}</button>`).join("")}</span></div></div>`;
+    $("#bnall").onchange=e=>{S.bnAllCards=e.target.checked?1:0;persist("s");BQ=null;viewBnCards();};
+    app.querySelectorAll("[data-npd]").forEach(b=>b.onclick=()=>{S.bnPerDay=+b.dataset.npd;persist("s");BQ=null;viewBnCards();});return;}
+  const c=BQ.q[0],t=c.t;const st=(S.bncards||{})[c.id];const i=st?st.i:0;const lab=n=>n<1?"<1 d":n+" d";
+  const nxt={again:"today",hard:lab(Math.max(1,Math.round(i*1.2))),good:lab(i<1?1:Math.round(i*2.3)),easy:lab(i<1?4:Math.round(i*3.2))};
+  const rev=!!S.bnRev;const front=rev?t.bn:t.en;const r=LIDX[t.lid];
+  app.innerHTML=`<div class="stack"><div class="row" style="justify-content:space-between"><a class="small" href="#bangla">‹ বাংলা</a><span class="small muted">${BQ.q.length} left · ${st?"review":"new"}</span></div>
+    <div class="row" style="justify-content:space-between;align-items:center"><span class="row" style="gap:6px"><button class="btn sm" id="bspk">🔊</button><button class="btn sm" id="bmic" ${canListenBn()&&!rev?"":"hidden"}>🎤 বলুন</button></span>
+      <button class="btn sm ghost" id="brev">${rev?"বাংলা → English":"English → বাংলা"} ⇄</button></div>
+    <div class="fc" id="bfc"><div class="small muted">${esc(r?r.l.title:"")}</div><div class="front" ${rev?'lang="bn"':""}>${esc(front)}</div>
+      ${BQ.show?`<div class="back" lang="bn">${rev?esc(t.en):esc(t.bn)}</div>${t.alt&&t.alt.length?`<div class="small" lang="bn">অন্য নাম: ${esc(t.alt.join(", "))}</div>`:""}${t.note?`<div class="small muted" lang="bn">${esc(t.note)}</div>`:""}${t.usage==="en"?`<div class="small muted" lang="bn">কথায় সাধারণত ইংরেজি শব্দটিই চলে</div>`:""}`:`<div class="small muted">${rev?"Say the English term, then tap to check":"বাংলায় নামটা বলুন, তারপর ট্যাপ করুন"}</div>`}
+      <div class="said small" id="bsaid" ${BQ.said?"":"hidden"} lang="bn">${BQ.said?"আপনি বললেন: “"+esc(BQ.said)+"”":""}</div>${BQ.show&&BQ.verdict?`<div class="verdict ${BQ.verdict.cls}">${BQ.verdict.msg}</div>`:""}</div>
+    ${BQ.show?`<div class="rate">${["again","hard","good","easy"].map(k=>`<button class="btn ${(BQ.verdict?BQ.verdict.r===k:k==="easy")?"primary":""}" data-r="${k}">${k[0].toUpperCase()+k.slice(1)}<small>${nxt[k]}</small></button>`).join("")}</div>`:`<button class="btn primary" id="brv">Show answer</button>`}</div>`;
+  const rv=()=>{if(BQ.mic){BQ.mic.stop();BQ.mic=null;}BQ.show=true;viewBnCards();if(!rev)sayBn(t.bn);};
+  $("#bfc").onclick=()=>{if(!BQ.show)rv();};const b=$("#brv");if(b)b.onclick=rv;
+  $("#bspk").onclick=()=>{if(BQ.show)sayBn(t.bn+(t.note?"। "+t.note:""));else if(rev)sayBn(t.bn);else say(t.en);};
+  $("#brev").onclick=()=>{S.bnRev=S.bnRev?0:1;persist("s");BQ.show=false;BQ.said="";BQ.verdict=null;viewBnCards();};
+  const mic=$("#bmic");if(mic)mic.onclick=()=>{if(BQ.mic){BQ.mic.stop();return;}stopSay();const sd=$("#bsaid");sd.hidden=false;sd.textContent="শুনছি… বাংলায় বলুন";mic.textContent="⏹";
+    BQ.mic=listenOnce(x=>{if(document.body.contains(sd))sd.textContent="আপনি বললেন: “"+x+"”";},(x,why)=>{BQ.mic=null;if(BQ.q[0]!==c)return;
+      if(!x){if(document.body.contains(sd)){sd.textContent=why==="not-allowed"?"Microphone permission was refused.":"শুনতে পাইনি। আবার 🎤 চাপুন।";mic.textContent="🎤 বলুন";}return;}
+      BQ.said=x;const sc=bnMatch(x,t);BQ.verdict=sc>=0.8?{r:"good",cls:"ok",msg:"✓ ঠিক আছে। Suggested: Good"}:sc>=0.5?{r:"hard",cls:"part",msg:"½ কাছাকাছি। Suggested: Hard"}:{r:"again",cls:"no",msg:"✗ মিলল না। Suggested: Again"};
+      BQ.show=true;viewBnCards();sayBn(t.bn);},"bn-IN");};
+  app.querySelectorAll("[data-r]").forEach(x=>x.onclick=()=>{const r2=x.dataset.r;bnRate(c,r2);BQ.q.shift();if(r2==="again")BQ.q.push(c);BQ.done++;BQ.show=false;BQ.said="";BQ.verdict=null;viewBnCards();});
+}
+function viewBnGloss(){
+  const mods=MAN.modules.filter(m=>m.lessons.some(l=>bnTerms(l.id).length));
+  app.innerHTML=`<div class="stack"><a class="small" href="#bangla">‹ বাংলা</a><h1>শব্দকোষ</h1>
+    <input class="inp" id="bq" placeholder="Search in English or বাংলা" autocomplete="off">
+    <div id="bres" lang="bn"></div></div>`;
+  const draw=()=>{const q=$("#bq").value.trim().toLowerCase();const out=[];
+    mods.forEach(m=>{const rows=[];m.lessons.forEach(l=>bnTerms(l.id).forEach(t=>{if(!q||(t.en+" "+t.bn+" "+(t.alt||[]).join(" ")+" "+(t.note||"")).toLowerCase().includes(q))rows.push([l,t]);}));
+      if(rows.length)out.push(`<details class="card" ${q?"open":""}><summary><b>${esc(m.short)}</b> <span class="small muted">${rows.length}</span></summary><table class="facts bngl">${rows.map(([l,t])=>`<tr><td>${esc(t.en)}<div class="small muted">${esc(l.title)}</div></td><td><b>${esc(t.bn)}</b>${t.alt&&t.alt.length?`<span class="small muted"> · ${esc(t.alt.join(", "))}</span>`:""}${t.note?`<div class="small muted">${esc(t.note)}</div>`:""}</td><td><button class="btn sm ghost" data-s="${esc(t.bn)}">🔊</button></td></tr>`).join("")}</table></details>`);});
+    $("#bres").innerHTML=out.join("")||`<p class="muted">No match.</p>`;$("#bres").querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>sayBn(b.dataset.s));};
+  $("#bq").oninput=draw;draw();}
+const BN_CATS={personal:"নিজের কথা",role:"আইডিও-র কাজ",industry:"পশ্চিমবঙ্গের শিল্প",schemes:"প্রকল্প ও সহায়তা",safety:"কারখানার নিরাপত্তা",pollution:"দূষণ নিয়ন্ত্রণ",energy:"পরিবেশ ও শক্তি",situational:"পরিস্থিতি ও নৈতিকতা"};
+function viewBnIv(a){const IT=(BN.interview&&BN.interview.items)||[];S.bniv=S.bniv||{};
+  if(a==="-practice"||a.startsWith("-q")){const pool=IT.filter(x=>S.bniv[x.id]!=="g");const pick=a.startsWith("-q")?IT.find(x=>x.id===a.slice(2)):(pool.length?pool:IT)[Math.floor(Math.random()*(pool.length||IT.length))];if(!pick){location.hash="bangla-iv";return;}
+    let tm=null,tl=90;
+    app.innerHTML=`<div class="stack" lang="bn"><a class="small" href="#bangla-iv">‹ বাংলায় ইন্টারভিউ</a><div class="eyebrow">${esc(BN_CATS[pick.cat]||pick.cat)}</div>
+      <h1 style="font-size:21px">${esc(pick.q)}</h1><p class="small muted" style="margin:0" lang="en">${esc(pick.q_en||"")}</p>
+      <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn sm" id="qsay">🔊 প্রশ্ন শুনুন</button><button class="btn primary" id="go">৯০ সেকেন্ড শুরু</button><b id="tt" style="font-size:22px">1:30</b></div>
+      ${canListenBn()?`<button class="btn" id="rec">🎤 বাংলায় উত্তর দিন</button><div class="card small" id="tr" hidden></div>`:""}
+      <button class="btn" id="rv">মডেল উত্তর দেখুন</button><div id="kp"></div></div>`;
+    $("#qsay").onclick=()=>sayBn(pick.q);
+    $("#go").onclick=()=>{clearInterval(tm);tl=90;tm=setInterval(()=>{tl--;const e=$("#tt");if(!e){clearInterval(tm);return;}e.textContent=`${Math.floor(Math.max(tl,0)/60)}:${String(Math.max(tl,0)%60).padStart(2,"0")}`;if(tl<=0){clearInterval(tm);toastPep("সময় শেষ! এক লাইনে শেষ করুন।");}},1000);};
+    let rec=null,said="";const rb=$("#rec");if(rb)rb.onclick=()=>{if(rec){rec.stop();return;}const tr=$("#tr");tr.hidden=false;tr.textContent="শুনছি…";rb.textContent="⏹ থামান";
+      const run=()=>{rec=listenOnce(x=>{if(document.body.contains(tr))tr.textContent=(said+" "+x).trim();},(x,why)=>{said=(said+" "+(x||"")).trim();rec=null;if(!document.body.contains(rb))return;rb.textContent="🎤 আবার বলুন / যোগ করুন";
+        if(said){const hit=(pick.terms||[]).filter(([e,b])=>bnNorm(said).includes(bnNorm(b))||said.toLowerCase().includes(e.toLowerCase()));tr.innerHTML=`<div>${esc(said)}</div>${(pick.terms||[]).length?`<div class="small muted" style="margin-top:6px">মূল শব্দ বলেছেন: ${hit.length}/${pick.terms.length}${hit.length?" — "+esc(hit.map(h=>h[1]).join(", ")):""}</div>`:""}`;}},"bn-IN");};run();};
+    $("#rv").onclick=()=>{clearInterval(tm);$("#rv").remove();$("#kp").innerHTML=bnIvCard(pick)+`<p class="small muted">কেমন হল?</p><div class="row" style="gap:8px"><button class="btn" data-r="n">আরও অনুশীলন</button><button class="btn primary" data-r="g">আত্মবিশ্বাসী</button></div>`;
+      bnIvWire($("#kp"),pick);$("#kp").querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{S.bniv[pick.id]=b.dataset.r;persist("s");viewBnIv("-practice");});};
+    return;}
+  const cats=[...new Set(IT.map(x=>x.cat))];const done=IT.filter(x=>S.bniv[x.id]==="g").length;
+  app.innerHTML=`<div class="stack" lang="bn"><a class="small" href="#bangla">‹ বাংলা</a><div><div class="eyebrow">Interview · Bengali</div><h1>বাংলায় ইন্টারভিউ</h1>
+    <p class="muted" style="margin:6px 0 0">Model answers in everyday spoken Bengali, using the exact Bengali terms. Listen, then answer in your own words; don't memorise word for word.</p></div>
+    <a class="btn primary" href="#bangla-iv-practice">একটা প্রশ্ন অনুশীলন করুন (${done}/${IT.length} আত্মবিশ্বাসী)</a>
+    ${cats.map(c=>`<h2>${esc(BN_CATS[c]||c)}</h2>${IT.filter(x=>x.cat===c).map(x=>`<details class="card" data-id="${x.id}"><summary>${S.bniv[x.id]==="g"?"✓ ":""}${esc(x.q)}<div class="small muted" lang="en">${esc(x.q_en||"")}</div></summary>${bnIvCard(x)}<a class="btn sm" href="#bangla-iv-q${x.id}">অনুশীলন</a></details>`).join("")}`).join("")}</div>`;
+  app.querySelectorAll("details[data-id]").forEach(d=>{const x=IT.find(y=>y.id===d.dataset.id);bnIvWire(d,x);});}
+function bnIvCard(x){return `<div class="bnans" lang="bn">${esc(x.a).replace(/\n+/g,"<br>")}</div><div class="row" style="gap:6px;margin:8px 0"><button class="btn sm" data-ansay>🔊 উত্তর শুনুন</button></div>${(x.terms||[]).length?`<div class="small"><b>মূল শব্দ:</b> ${x.terms.map(([e,b])=>`${esc(b)} <span class="muted">(${esc(e)})</span>`).join(" · ")}</div>`:""}${x.tips?`<div class="small muted" style="margin-top:6px">💡 ${esc(x.tips)}</div>`:""}`;}
+function bnIvWire(root,x){const b=root.querySelector("[data-ansay]");if(b)b.onclick=e=>{e.preventDefault();sayBn(x.a);};}
+function viewBnPhrases(){const P=(BN.interview&&BN.interview.phrases)||[];
+  app.innerHTML=`<div class="stack" lang="bn"><a class="small" href="#bangla">‹ বাংলা</a><h1>কাজের কথা</h1><div class="list">${P.map((p,i)=>`<div class="li"><span class="grow"><span class="t">${esc(p[0])}</span><br><span class="small muted" lang="en">${esc(p[1])}</span></span><button class="btn sm ghost" data-i="${i}">🔊</button></div>`).join("")}</div></div>`;
+  app.querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>sayBn(P[+b.dataset.i][0]));}
+function viewBnRead(a){const R=BN.reading||[];S.bnread=S.bnread||{};
+  if(a&&a.startsWith("-")){const p=R.find(x=>x.id===a.slice(1));if(!p){location.hash="bangla-read";return;}
+    app.innerHTML=`<div class="stack" lang="bn"><a class="small" href="#bangla-read">‹ পড়া</a><div class="eyebrow">${esc(p.type||"")}</div><h1>${esc(p.title)}</h1>
+      <div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn sm" id="ls">🔊 শুনুন</button>${canListenBn()?`<button class="btn sm" id="rd">🎤 নিজে পড়ুন</button>`:""}</div>
+      <div class="card bnpass">${esc(p.text).replace(/\n+/g,"<br>")}</div><div id="rdres" class="small"></div>
+      ${(p.words||[]).length?`<h2>শব্দার্থ</h2><table class="facts bngl">${p.words.map(w=>`<tr><td><b>${esc(w[0])}</b></td><td>${esc(w[1])}<div class="small muted" lang="en">${esc(w[2]||"")}</div></td></tr>`).join("")}</table>`:""}
+      <h2>প্রশ্ন</h2>${(p.qs||[]).map(q=>`<details class="card"><summary>${esc(q[0])}</summary><p style="margin:8px 0 0">${esc(q[1])}</p></details>`).join("")}
+      <button class="btn ${S.bnread[p.id]?"":"primary"}" id="rdone">${S.bnread[p.id]?"পড়া হয়েছে ✓":"পড়া শেষ"}</button></div>`;
+    $("#ls").onclick=()=>sayBn(p.text);$("#rdone").onclick=()=>{S.bnread[p.id]=S.bnread[p.id]?0:1;persist("s");viewBnRead(a);};
+    const rd=$("#rd");if(rd){let rec=null,said="";rd.onclick=()=>{if(rec){rec.stop();return;}rd.textContent="⏹ থামান";$("#rdres").textContent="শুনছি… জোরে পড়ুন";
+      rec=listenOnce(x=>{$("#rdres")&&($("#rdres").textContent=(said+" "+x).trim());},(x)=>{rec=null;said=(said+" "+(x||"")).trim();if(!document.body.contains(rd))return;rd.textContent="🎤 আবার পড়ুন";
+        const tw=bnNorm(p.text).split(" ").filter(w=>w.length>1);const sw=new Set(bnNorm(said).split(" "));const got=tw.filter(w=>sw.has(w)).length;
+        $("#rdres").innerHTML=said?`<div class="card">ফোন যা শুনেছে: ${esc(said)}<div class="muted" style="margin-top:6px">মিলেছে প্রায় ${Math.round(100*got/Math.max(1,tw.length))}% শব্দ। (ফোনের শোনায় ভুল হতে পারে, তাই এটা শুধু আন্দাজ।)</div></div>`:"শুনতে পাইনি।";},"bn-IN");};}
+    return;}
+  app.innerHTML=`<div class="stack" lang="bn"><a class="small" href="#bangla">‹ বাংলা</a><h1>পড়া</h1><p class="muted" style="margin:0">Read each passage aloud at a steady pace, as you might be asked to at the interview. Then answer the questions.</p>
+    <div class="list">${R.map(p=>`<a class="li" href="#bangla-read-${p.id}"><span class="grow"><span class="t">${S.bnread[p.id]?"✓ ":""}${esc(p.title)}</span><br><span class="small muted">${esc(p.type||"")}</span></span><span class="muted">›</span></a>`).join("")}</div></div>`;}
+function viewBnWrite(a){const W=BN.writing||[];S.bnw=S.bnw||{};
+  if(a&&a.startsWith("-")){const w=W.find(x=>x.id===a.slice(1));if(!w){location.hash="bangla-write";return;}
+    app.innerHTML=`<div class="stack" lang="bn"><a class="small" href="#bangla-write">‹ লেখা</a><h1>${esc(w.title)}</h1><div class="card">${esc(w.prompt).replace(/\n+/g,"<br>")}${w.source_en?`<div class="card small" lang="en" style="margin-top:8px">${esc(w.source_en)}</div>`:""}</div>
+      ${(w.guide||[]).length?`<ul class="small">${w.guide.map(g=>`<li>${esc(g)}</li>`).join("")}</ul>`:""}
+      <textarea class="inp" id="wt" rows="10" placeholder="এখানে বাংলায় লিখুন…" style="font-size:17px">${esc(S.bnw[w.id]||"")}</textarea><div class="small muted" id="wc"></div>
+      <button class="btn" id="wm">মডেল উত্তর দেখুন</button><div id="wmod"></div></div>`;
+    const ta=$("#wt");const cnt=()=>{const n=(ta.value.trim().match(/\S+/g)||[]).length;$("#wc").textContent=n+" শব্দ · নিজে থেকেই সেভ হচ্ছে";};cnt();
+    ta.oninput=()=>{S.bnw[w.id]=ta.value;cnt();clearTimeout(ta._t);ta._t=setTimeout(()=>persist("s"),600);};
+    $("#wm").onclick=()=>{$("#wm").remove();$("#wmod").innerHTML=`<h2>মডেল উত্তর</h2><div class="card bnans">${esc(w.model).replace(/\n+/g,"<br>")}</div><h2>নিজে যাচাই করুন</h2>${(w.check||[]).map((c,i)=>`<label class="row small" style="gap:8px;align-items:flex-start;margin:6px 0"><input type="checkbox">${esc(c)}</label>`).join("")}`;};
+    return;}
+  app.innerHTML=`<div class="stack" lang="bn"><a class="small" href="#bangla">‹ বাংলা</a><h1>লেখা</h1><p class="muted" style="margin:0">Write first, then compare with the model answer. Your writing is saved on this device.</p>
+    <div class="list">${W.map(w=>`<a class="li" href="#bangla-write-${w.id}"><span class="grow"><span class="t">${S.bnw[w.id]?"✎ ":""}${esc(w.title)}</span></span><span class="muted">›</span></a>`).join("")}</div></div>`;}
+let TRQ=null;
+function viewBnTr(){const T=BN.translate||[];if(!T.length){location.hash="bangla";return;}if(!TRQ)TRQ={q:shuffle(T.map((_,i)=>i)),show:false};if(!TRQ.q.length)TRQ.q=shuffle(T.map((_,i)=>i));
+  const it=T[TRQ.q[0]];
+  app.innerHTML=`<div class="stack"><a class="small" href="#bangla">‹ বাংলা</a><h1>অনুবাদ</h1><p class="small muted" style="margin:0">Say or write it in Bengali, then check.</p>
+    <div class="fc" id="tfc"><div class="front" style="font-size:20px">${esc(it[0])}</div>${TRQ.show?`<div class="back" lang="bn">${esc(it[1])}</div>`:`<div class="small muted">বাংলায় বলুন বা লিখুন</div>`}<div class="said small" id="tsaid" lang="bn" ${TRQ.said?"":"hidden"}>${TRQ.said?"আপনি বললেন: “"+esc(TRQ.said)+"”":""}</div></div>
+    <div class="row" style="gap:6px;flex-wrap:wrap">${canListenBn()&&!TRQ.show?`<button class="btn" id="tmic">🎤 বলুন</button>`:""}${TRQ.show?`<button class="btn sm" id="tsay">🔊 শুনুন</button><button class="btn primary" id="tnext">পরেরটা ›</button>`:`<button class="btn primary" id="tshow">মডেল দেখুন</button>`}</div></div>`;
+  const sh=$("#tshow");if(sh)sh.onclick=()=>{TRQ.show=true;viewBnTr();sayBn(it[1]);};const nx=$("#tnext");if(nx)nx.onclick=()=>{TRQ.q.shift();TRQ.show=false;TRQ.said="";viewBnTr();};
+  const ts=$("#tsay");if(ts)ts.onclick=()=>sayBn(it[1]);
+  const m=$("#tmic");if(m)m.onclick=()=>{const sd=$("#tsaid");sd.hidden=false;sd.textContent="শুনছি…";m.textContent="⏹";const cur=TRQ.q[0];
+    listenOnce(x=>{if(document.body.contains(sd))sd.textContent="আপনি বললেন: “"+x+"”";},(x)=>{if(TRQ.q[0]!==cur)return;TRQ.said=x||"";TRQ.show=true;viewBnTr();},"bn-IN");};}
+
 /* speech: claude.ai voice where available, otherwise the browser's own voice */
 let SPK=0;
 /* ---------- spoken script: turns course text into what a teacher would say ---------- */
@@ -1000,16 +1187,16 @@ function dictReady(){if(!DICTP&&window.claude&&claude.use)DICTP=claude.use("dict
 function SRclass(){return window.SpeechRecognition||window.webkitSpeechRecognition||null;}
 function canListen(){return !!(DICT||SRclass());}
 /* start listening; must be called straight from a tap. cb(text,final) */
-function listenOnce(cb,onEnd){
+function listenOnce(cb,onEnd,lang){
   let txt="",fin="",ended=false;const end=r=>{if(ended)return;ended=true;onEnd&&onEnd((fin+" "+txt).trim(),r);};
-  if(DICT){const d=DICT;let offs=[];
+  if(DICT&&!(lang&&!/^en/i.test(lang)&&SRclass())){const d=DICT;let offs=[];
     try{offs.push(d.onPartial(({text})=>{txt=text||"";cb((fin+" "+txt).trim(),false);}));
       offs.push(d.onFinal(({text})=>{fin=(fin+" "+(text||"")).trim();txt="";cb(fin,true);}));
       offs.push(d.onState(({state,reason})=>{if(state==="idle"){offs.forEach(f=>{try{typeof f==="function"&&f();}catch(e){}});end(reason||"stopped");}}));}catch(e){}
     d.start().catch(e=>end((e&&(e.code||e.message))||"error"));
     return {stop:()=>{d.stop().catch(()=>{});}};}
   const C=SRclass();if(!C){end("unsupported");return {stop(){}};}
-  const r=new C();r.lang="en-IN";r.interimResults=true;r.continuous=false;r.maxAlternatives=1;
+  const r=new C();r.lang=lang||"en-IN";r.interimResults=true;r.continuous=false;r.maxAlternatives=1;
   r.onresult=e=>{let it="";for(let i=e.resultIndex;i<e.results.length;i++){const x=e.results[i];if(x.isFinal)fin=(fin+" "+x[0].transcript).trim();else it+=x[0].transcript;}txt=it;cb((fin+" "+txt).trim(),!it);};
   r.onerror=e=>end(e.error||"error");r.onend=()=>end("stopped");
   try{r.start();}catch(e){end("error");}
@@ -1709,6 +1896,7 @@ function viewMore(){
   app.innerHTML=`<div class="stack">
     <div><h1>More</h1></div>
     <div class="list">
+      <a class="li" href="#bangla"><span class="grow"><span class="t">বাংলা · Bengali for the interview</span><br><span class="small muted">Exact Bengali names of every key term, answers in Bengali, reading and writing practice</span></span><span class="muted">›</span></a>
       <a class="li" href="#interview"><span class="grow"><span class="t">Interview prep</span><br><span class="small muted">15 marks · likely questions, answer outlines, timed practice</span></span><span class="muted">›</span></a>
       <a class="li" href="#crash"><span class="grow"><span class="t">Crash revision</span><br><span class="small muted">Your weakest sections first, cheat sheets, rapid quizzes</span></span><span class="muted">›</span></a>
       <a class="li" href="#notes"><span class="grow"><span class="t">My notes</span><br><span class="small muted">Answers you saved while asking doubts</span></span><span class="chip mute">${N.items.length}</span></a>
