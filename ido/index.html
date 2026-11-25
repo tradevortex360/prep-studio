@@ -164,6 +164,12 @@ input[type=date]{font:inherit;padding:6px 10px;border:1px solid var(--line);bord
 .fc .pc{font-size:13px;font-weight:600;padding:3px 9px;border-radius:999px;border:1px dashed var(--muted);color:var(--text,inherit);opacity:.85}
 .fc .pc.y{opacity:1;border-style:solid;color:var(--good);border-color:var(--good);background:var(--good-soft)}
 .fc .pc.x{opacity:1;border-style:solid;color:var(--bad);border-color:var(--bad);background:var(--bad-soft)}
+.sp{font-size:14px;line-height:1.5;max-height:45vh;overflow:auto}
+.sp>div{padding:4px 6px;border-radius:6px}
+.sp .sp-head{font-weight:700;margin-top:6px}
+.sp .sp-key{border-left:3px solid #e3ad55;padding-left:8px;background:rgba(227,173,85,.08)}
+.sp .sp-p{color:var(--muted);text-align:center;padding:0}
+.sp .now{background:rgba(227,173,85,.25)}
 .rate .btn small{white-space:nowrap}
 .rate .btn.primary small{color:inherit;opacity:.75}
 .rate{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
@@ -777,7 +783,7 @@ function viewLesson(id){
   app.innerHTML=`<article class="stack">
     <a href="#module-${m.id}" class="small">‹ ${esc(m.title)}</a>
     <div><div class="eyebrow">Lesson ${idx+1} of ${m.lessons.length} · ${l.minutes} min read</div><h1 style="margin-top:4px">${esc(l.title)}</h1><p class="muted" style="margin:8px 0 0">${esc(l.summary)}</p></div>
-    <div class="row"><button class="btn sm" id="listen" hidden>Listen</button><a class="btn sm" href="#quiz-${id}">Practice ${l.mcqs.length} questions</a></div>
+    <div class="row" style="flex-wrap:wrap;gap:6px"><button class="btn sm" id="listen" hidden>Listen</button><button class="btn sm" id="script" hidden>📝 Spoken script</button><a class="btn sm" href="#quiz-${id}">Practice ${l.mcqs.length} questions</a></div><div id="scriptpanel" class="sp card" hidden></div>
     <div class="stepbar" id="stepbar"></div>
     <div class="lesson">${l.sections.map((s,i)=>`<section class="lsec" data-i="${i}"><h2>${esc(s.h)} <button class="askline" data-sec="${i}">Ask about this</button></h2>${s.html}</section>`).join("")}</div>
     <div class="stepnav" id="stepnav"></div>
@@ -807,7 +813,161 @@ function viewLesson(id){
 }
 /* speech: claude.ai voice where available, otherwise the browser's own voice */
 let SPK=0;
-function speechText(t){return String(t||"").replace(/ⁿ/g," to the power n ").replace(/ₙ/g," n ").replace(/[₀-₉]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x2050)).replace(/₊/g," plus ").replace(/₋/g," minus ").replace(/\bsyn\b/g,"synonym").replace(/\bant\b/g,"antonym").replace(/·/g,",").replace(/→/g," to ").replace(/\s+/g," ").trim();}
+/* ---------- spoken script: turns course text into what a teacher would say ---------- */
+const SP_ONES=["zero","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen"];
+const SP_TENS=["","","twenty","thirty","forty","fifty","sixty","seventy","eighty","ninety"];
+function sp2(n){return n<20?SP_ONES[n]:SP_TENS[Math.floor(n/10)]+(n%10?"-"+SP_ONES[n%10]:"");}
+function sp3(n){const h=Math.floor(n/100),r=n%100;return (h?SP_ONES[h]+" hundred"+(r?" ":""):"")+(r||!h?sp2(r):"");}
+/* Indian system: crore, lakh, thousand */
+function inWords(n){n=Math.floor(n);if(n===0)return "zero";const out=[];
+  const cr=Math.floor(n/1e7),lk=Math.floor(n%1e7/1e5),th=Math.floor(n%1e5/1e3),rest=n%1e3;
+  if(cr)out.push((cr>=1000?inWords(cr):sp3(cr))+" crore");if(lk)out.push(sp2(lk)+" lakh");if(th)out.push(sp2(th)+" thousand");if(rest)out.push(sp3(rest));
+  return out.join(" ");}
+const SP_MON={Jan:"January",Feb:"February",Mar:"March",Apr:"April",Jun:"June",Jul:"July",Aug:"August",Sep:"September",Sept:"September",Oct:"October",Nov:"November",Dec:"December"};
+const SP_U={"µm":"micrometre","μm":"micrometre","µg":"microgram","μg":"microgram","µS":"microsiemens","µmho":"micromho","km":"kilometre","cm":"centimetre","mm":"millimetre","nm":"nanometre","m":"metre","kg":"kilogram","mg":"milligram","g":"gram","t":"tonne","MMT":"million tonne","MTPA":"million tonnes per year","MW":"megawatt","GW":"gigawatt","kW":"kilowatt","kWh":"kilowatt hour","TWh":"terawatt hour","MWh":"megawatt hour","W":"watt","kV":"kilovolt","V":"volt","mA":"milliamp","A":"ampere","kHz":"kilohertz","MHz":"megahertz","GHz":"gigahertz","Hz":"hertz","dB":"decibel","dBA":"decibel A","kPa":"kilopascal","Pa":"pascal","J":"joule","kJ":"kilojoule","N":"newton","K":"kelvin","ha":"hectare","L":"litre","l":"litre","ml":"millilitre","mL":"millilitre","ppm":"part per million","ppb":"part per billion","lx":"lux","KB":"kilobyte","MB":"megabyte","GB":"gigabyte","TB":"terabyte","mSv":"millisievert","Sv":"sievert","Bq":"becquerel","cal":"calorie","kcal":"kilocalorie","s":"second","h":"hour","min":"minute","yr":"year","kmph":"kilometre per hour","Ω":"ohm","mol":"mole","cd":"candela","lm":"lumen","C":"coulomb","F":"farad","T":"tesla","Wb":"weber","dpt":"dioptre"};
+const SP_UKEYS=Object.keys(SP_U).sort((a,b)=>b.length-a.length).map(k=>k.replace(/[.*+?^${}()|[\]\\\/]/g,"\\$&")).join("|");
+const SP_UPART="(?:"+SP_UKEYS+")[²³]?";
+const SP_UNIT_RE=new RegExp("([\\d⁰¹²³⁴⁵⁶⁷⁸⁹])(\\s?)("+SP_UPART+"(?:[·/]"+SP_UPART+")*)(?![A-Za-z0-9²³])","g");
+const SP_CUNIT_RE=new RegExp("(^|[\\s(,])("+SP_UPART+"(?:[·/]"+SP_UPART+")+)(?![A-Za-z0-9²³])","g");
+const SP_NOPL=/(hertz|lux|kelvin|siemens|per year)$/;
+function spPl(w){if(/^part per/.test(w))return w.replace(/^part/,"parts");if(SP_NOPL.test(w))return w;const m=w.match(/^(.*?)(\S+)( squared| cubed)?$/);return m[1]+(m[2].endsWith("s")?m[2]:m[2]+"s")+(m[3]||"");}
+function spUnitPiece(u){const pw=u.endsWith("²")?2:u.endsWith("³")?3:0;const b=pw?u.slice(0,-1):u;const n=SP_U[b];if(!n)return null;
+  if(pw&&/metre$/.test(n))return (pw===2?"square ":"cubic ")+n;return n+(pw===2?" squared":pw===3?" cubed":"");}
+function spUnitWords(u,plural){const [num,...den]=u.split("/");const nw=num.split("·").map(spUnitPiece);const dw=den.map(d=>d.split("·").map(spUnitPiece));
+  if(nw.includes(null)||dw.flat().includes(null))return null;let first=nw.join(" ");if(plural)first=nw.length>1?nw.slice(0,-1).join(" ")+" "+spPl(nw[nw.length-1]):spPl(first);
+  return first+(dw.length?" per "+dw.map(x=>x.join(" ")).join(" per "):"");}
+const SP_SUB={"₀":"0","₁":"1","₂":"2","₃":"3","₄":"4","₅":"5","₆":"6","₇":"7","₈":"8","₉":"9","₊":"+","₋":"−","ₙ":"n"};
+const SP_SUP={"⁰":"0","¹":"1","²":"2","³":"3","⁴":"4","⁵":"5","⁶":"6","⁷":"7","⁸":"8","⁹":"9","⁺":"+","⁻":"minus ","ⁿ":"n"};
+const SP_ABBR=[[/\be\.g\.(?=\s|,|$)/g,"for example"],[/\bi\.e\.(?=\s|,|$)/g,"that is"],[/\betc\.(?=\s|,|\)|$)/g,"et cetera"],[/\bvs\.?(?=\s)/g,"versus"],[/\bapprox\.(?=\s)/g,"approximately"],[/\bS\.O\.\s?(?=\d)/g,"S O "],[/\bSec\.\s?(?=\d)/g,"section "],[/\bSecs?\.\s?/g,"sections "],[/\bss\.\s?(?=\d)/g,"sections "],[/(?<![\/\w])s\.\s?(?=\d)/g,"section "],[/\bNo\.\s?(?=\d)/g,"number "],[/\bRs\.?\s?(?=\d)/g,"₹"],[/\bBE\b/g,"budget estimate"],[/\bRE\b(?=\s*\d|\))/g,"revised estimate"],[/\bDr\.\s/g,"Doctor "],[/\bSt\.\s/g,"Saint "],[/\bMt\.\s/g,"Mount "],[/\bGovt\.?/g,"Government"],[/\bdept\.?(?=\s)/gi,"department"],[/(?<!\/)\byr\b/g,"year"],[/(?<!\/)\byrs\b/g,"years"],[/\bmax\b(?=\s)/g,"maximum"],[/\bsyn\b/g,"synonym"],[/\bant\b/g,"antonym"],[/\bPwBD\b/g,"P W B D"],[/\bQ(\d+)\b/g,"question $1"],[/\bFY\b/g,"financial year"]];
+/* a chemical formula with subscripts → spoken letters and numbers: H₂SO₄ → "H two S O four" */
+function spChem(tok){let s="";const parts=tok.match(/[A-Z][a-z]?|[a-z]|[0-9]+|[₀-₉₊₋ₙ]+|[()+−-]/g)||[tok];
+  parts.forEach(p=>{if(/^[₀-₉₊₋ₙ]+$/.test(p)){const t=[...p].map(c=>SP_SUB[c]).join("");s+=" "+t.replace(/\+/g," plus ").replace(/−/g," minus ").replace(/(\d)n/g,"$1 n")+" ";}
+    else if(/^[A-Z][a-z]?$/.test(p))s+=" "+p.split("").join(" ").toUpperCase()+" ";else if(p==="(")s+=" bracket ";else if(p===")")s+=" close bracket ";else s+=" "+p+" ";});
+  return s.replace(/\s+/g," ").trim();}
+const SP_FR_X={"2": ["half", "halves"], "3": ["third", "thirds"], "4": ["quarter", "quarters"], "5": ["fifth", "fifths"], "6": ["sixth", "sixths"], "7": ["seventh", "sevenths"], "8": ["eighth", "eighths"], "9": ["ninth", "ninths"], "10": ["tenth", "tenths"], "11": ["eleventh", "elevenths"], "12": ["twelfth", "twelfths"], "16": ["sixteenth", "sixteenths"], "20": ["twentieth", "twentieths"], "100": ["hundredth", "hundredths"]};
+const SP_FR=Object.fromEntries(Object.entries(SP_FR_X).filter(([k])=>+k<=20));
+function spFrac(a,b){a=+a;b=+b;const f=SP_FR[b];if(!f||a<1||!(a<b||(a<=9&&b<=5)))return null;return (a===1&&b===2?"one half":sp2(a)+"-"+(a===1?f[0]:f[1]));}
+const SP_EL=new Set("H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr Rb Sr Ag Cd Sn Sb I Xe Cs Ba Pt Au Hg Pb Bi Rn Ra U Th Pu W".split(" "));
+function spIsFormula(tok){const p=tok.match(/[A-Z][a-z]?/g);return !!p&&p.join("")===tok&&p.length>=2&&p.every(x=>SP_EL.has(x))&&/[a-z]/.test(tok);}
+function spokenText(raw){let t=String(raw||"");
+  t=t.replace(/[\u{1F300}-\u{1FAFF}☀-➿️]/gu," ");
+  SP_ABBR.forEach(([re,w])=>{t=t.replace(re,w);});
+  /* second review: codes, analogies, factorials, paths, roman statements */
+  t=t.replace(/#N\/A/g,"hash N A").replace(/#DIV\/0!/g,"hash DIV slash zero").replace(/#VALUE!/g,"hash value").replace(/#REF!/g,"hash ref");
+  t=t.replace(/(\S+)\s?:\s?(\S+)\s?::\s?(\S+)\s?:\s?(\S+)/g,(m,a,b,c,d)=>a+" is to "+b+", as "+c+" is to "+(d==="?"?"what?":d));
+  t=t.replace(/(\d)!(?=[\s=,.)]|$)/g,"$1 factorial");
+  t=t.replace(/(^|[\s:,(])\/([a-z]+)/g,"$1slash $2");
+  t=t.replace(/\b(yes|no)\/(yes|no)\b/gi,"$1, $2").replace(/\band\/or\b/g,"and or");
+  t=t.replace(/(\d)\+(?=[\s,;.)]|$)/g,"$1 or more");
+  t=t.replace(/(\d)\s?cr\b/g,"$1 crore");
+  t=t.replace(/(^|\s)-([a-z]{2,})\b/g,"$1$2");
+  t=t.replace(/\((Al|Cu|Mg|Fe|Zn|Na|Ca|Pb|Hg|Ag|Au|Sn|Cl|Si|Ni|Cr|Mn|Co)\)/g,(m,e)=>"("+e.split("").join(" ").toUpperCase()+")");
+  t=t.replace(/\b(Only|only|Both|both|Either|either|Neither|neither|Statement|statement|Statements|statements|Conclusion|conclusion|Conclusions|conclusions|Assumption|assumption|and|or|nor)\s(I|II|III|IV)\b/g,(m,w,r)=>w+" "+({I:"one",II:"two",III:"three",IV:"four"})[r]);
+  t=t.replace(/\b(I|II|III|IV)\s(?=(and|or|nor|follows|follow|only)\b)/g,(m,r)=>({I:"one",II:"two",III:"three",IV:"four"})[r]+" ");
+  t=t.replace(/(\w)\/(days?|hours?|weeks?|months?|years?|annum|head|person|capita|units?|litres?|kg|km|minutes?|seconds?)\b/g,"$1 per $2");
+  /* reviewer rules: fractions, lists, ratios, times, absolute values, implied products, option labels */
+  t=t.replace(/([⁰¹²³⁴-⁹]+)⁄([₀-₉]+)/g,(m,a,b)=>{const A=[...a].map(c=>SP_SUP[c]).join(""),B=[...b].map(c=>SP_SUB[c]).join("");return " "+(spFrac(A,B)||A+" over "+B)+" ";});
+  t=t.replace(/\(([A-Z][A-Za-z₀-₉]*)\)([₂₃])/g,(m,g,n)=>g+(n==="₂"?" twice, ":" three times, "));
+  t=t.replace(/([₀-₉A-Za-z])·(\d*[A-Z][A-Za-z₀-₉]*)/g,(m,a,b)=>/[₀-₉]/.test(a+b)?a+" dot "+b.replace(/^(\d+)/,"$1 "):m);
+  t=t.replace(/\b([A-Z][a-z]?(?:[A-Z][a-z]?){1,3})\b/g,m=>spIsFormula(m)?m.match(/[A-Z][a-z]?/g).map(x=>x.split("").join(" ").toUpperCase()).join(" "):m);
+  t=t.replace(/^\(([a-e])\)\s/,(m,l)=>"Option "+l.toUpperCase()+": ").replace(/(^|[\s.:;])\(([a-h])\)\s/g,(m,p,l)=>p+"item "+l+", ");
+  t=t.replace(/\b(\d{3,5}):((?:19|20)\d\d)\b/g,"$1 of $2");
+  t=t.replace(/\b([0-2]?\d):00\b/g,"$1 o'clock").replace(/\b([0-2]?\d):([0-5]\d)\b(?!\s?:)/g,"$1 $2");
+  t=t.replace(/\d+(?:(?:\s:\s|:)\d+)+/g,m=>m.split(/\s?:\s?/).join(" is to "));
+  t=t.replace(/\b([A-Z]):([A-Z])\b/g,"$1 is to $2");
+  t=t.replace(/\d[\d,]*(?:\s?[–—-]\s?\d[\d,]*){2,}/g,m=>m.split(/\s?[–—-]\s?/).join(", "));
+  t=t.replace(/(^|,\s*)[–—-](?=\s*(,|$))/g,"$1");
+  t=t.replace(/(\d)\|(\d)\|(\d)/g,"$1, $2, $3").replace(/\|([^|]{1,40})\|/g," the absolute value of $1, ");
+  t=t.replace(/\bC[–-]C bond/g,"carbon-carbon bond").replace(/\b(in|and|of|or) K\b/g,"$1 kelvin");
+  t=t.replace(/(\d)\s?[–—]\s?(\d)/g,"$1 to $2").replace(/(\d\s?[A-Za-zµμΩ²³]{1,4})[–—](\d)/g,"$1 to $2").replace(/([A-Za-z])[–—]([A-Za-z])/g,"$1-$2");
+  t=t.replace(/\b(\d+[a-z]{0,3}|[a-zA-Z])\((?=[^()]*[+−\/×-])/g,"$1 into (").replace(/\)\(/g,") into (");
+  t=t.replace(/\s−\s/g," minus ").replace(/\s[–—]\s/g,", ").replace(/\s-\s(?=\D)/g,", ");
+  t=t.replace(/\b(HCF|LCM|GCD|max|min)\(([^()]*)\)/g,"$1 of $2,");
+  t=t.replace(/\)²/g,") whole squared").replace(/\)³/g,") whole cubed").replace(/\)\/(\d+)/g,") all over $1").replace(/\/\(/g," divided by (");
+  t=t.replace(/(?<![\d\/.])(\d{1,2})\/(\d{1,3})(?![\d\/])/g,(m,a,b)=>spFrac(a,b)||m);
+  t=t.replace(/(\d)\/([a-z]{3,})\b/g,"$1 per $2");
+  t=t.replace(/([a-z0-9])√(\d+)/g,"$1 root $2");
+  t=t.replace(/([a-z])\(([a-z])\)([a-z])/g,"$1-$2-$3");
+  t=t.replace(/\bRE\b(?=\s(capacity|target|share|power|sources?|installed|projects?|sector))/g,"renewable energy");
+  t=t.replace(/(\d)\s?=\s?([a-z]{3,})/g,"$1 means $2").replace(/\b([a-z]{3,})\s?=\s?([a-z]{3,})\b/g,"$1 means $2");
+  t=t.replace(/(\d|²|³)·(?=\d)/g,"$1 times ");
+  t=t.replace(/o'clock\s?→\s?/g,"o'clock, we get ");
+  t=t.replace(/([^→.;]+→[^→.;]+→[^→.;]+)/g,m=>m.replace(/\s?→\s?/g,", then "));
+  t=t.replace(/([\d)²³°|])\s?→\s?/g,"$1 gives ").replace(/\s?→\s?/g," leads to ");
+  /* symbols that need words before the general rules */
+  t=t.replace(/\(\s\)/g," round brackets ").replace(/\{\s\}/g," curly brackets ").replace(/\[\s\]/g," square brackets ");
+  t=t.replace(/\b([A-Za-z])_([a-z]+)\s?\/\s?([A-Za-z])_([a-z]+)\b/g,"$1 $2 over $3 $4").replace(/\bI\/O\b/g,"I O");
+  t=t.replace(/_{2,}/g," blank ").replace(/\b([A-Za-z])_([a-z]+)\b/g,"$1 $2");
+  t=t.replace(/\bC≡C\b/g,"C triple bond C").replace(/\bC=C\b/g,"C double bond C").replace(/\bC[–-]C\b/g,"C single bond C").replace(/≡/g," is congruent to ");
+  t=t.replace(/\b([a-z])′/g,"$1 prime").replace(/′/g," prime").replace(/prime\s?\/\s?/g,"prime over ");
+  t=t.replace(/(\d)½/g,"$1 and a half").replace(/½/g," half ").replace(/⅓/g," one third ").replace(/⅔/g," two thirds ").replace(/¼/g," a quarter ").replace(/¾/g," three quarters ").replace(/⁄/g," over ");
+  t=t.replace(/\$\s?([\d.,]+)(\s?(?:million|billion|trillion|bn|mn))?/g,(m,a,b)=>a+(b?" "+b.trim().replace(/^bn$/,"billion").replace(/^mn$/,"million"):"")+" dollars").replace(/\$/g," dollars ");
+  t=t.replace(/\brr?\.\s?(?=\d)/g,"rule ").replace(/\bbn\b/g,"billion");
+  t=t.replace(/∩/g," intersection ").replace(/∪/g," union ").replace(/⊂/g," subset of ").replace(/↑/g," up").replace(/↓/g," down").replace(/\^/g," to the power ").replace(/@/g," at ").replace(/#/g," hash ").replace(/\|/g,", ");
+  const GR={α:"alpha",β:"beta",γ:"gamma",δ:"delta",η:"eta",ρ:"rho",θ:"theta",σ:"sigma",ω:"omega",ε:"epsilon",ν:"nu",τ:"tau",φ:"phi"};t=t.replace(/[αβγδηρθσωεντφ]/g,c=>" "+GR[c]+" ");
+  t=t.replace(/[ᴬᵃᵇᶜ]/g,c=>({"ᴬ":"A","ᵃ":"a","ᵇ":"b","ᶜ":"c"})[c]);
+  /* chemical formulas (tokens with subscripts) */
+  t=t.replace(/[A-Z][A-Za-z0-9₀-₉₊₋ₙ]*[₀-₉ₙ][A-Za-z0-9₀-₉₊₋ₙ]*/g,m=>spChem(m));
+  /* units with superscripts first, then powers */
+  t=t.replace(/\bkm²/g," square kilometres").replace(/\bcm²/g," square centimetres");
+  t=t.replace(SP_UNIT_RE,(m,d,sp,u,off,str)=>{const before=str.slice(Math.max(0,off-12),off+1);
+    if(/^[A-Z]$/.test(u)&&!sp)return m; /* 2A, 3C are labels, not units */
+    if(/^(C|F|T|A|N|K|V|W|J)$/.test(u)&&/^\s?[a-z]{2,}/.test(str.slice(off+m.length,off+m.length+4)))return m;
+    const one=/(^|[^\d.,])1$/.test(before);const w=spUnitWords(u,!one);return w?d+" "+w:m;});
+  t=t.replace(SP_CUNIT_RE,(m,pre,u)=>{if(u.split(/[·/]/).every(x=>/^[A-Za-z]$/.test(x)))return m;const w=spUnitWords(u,false);return w?pre+w:m;});
+  t=t.replace(/([A-Za-z0-9)])²/g,"$1 squared").replace(/([A-Za-z0-9)])³/g,"$1 cubed");
+  t=t.replace(/([A-Za-z0-9)])([⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻ⁿ]+)/g,(m,a,p)=>a+" to the power "+[...p].map(c=>SP_SUP[c]).join("").trim()+" ");
+  t=t.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻ⁿ]+/g,m=>" to the power "+[...m].map(c=>SP_SUP[c]).join("").trim()+" ").replace(/∧/g," and ").replace(/_/g," ");
+  t=t.replace(/[₀-₉₊₋ₙ]+/g,m=>" "+[...m].map(c=>SP_SUB[c]).join("")+" ");
+  /* dates and money */
+  t=t.replace(/\b(\d{1,2})\s(Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept?|Oct|Nov|Dec)\b\.?/g,(m,d,mo)=>d+" "+SP_MON[mo]);
+  t=t.replace(/\b([12]?\d|3[01])\s(January|February|March|April|May|June|July|August|September|October|November|December)\b/g,(m,d,mo)=>{const n=+d;const sf=(n%100>=11&&n%100<=13)?"th":["th","st","nd","rd"][n%10]||"th";return n+sf+" "+mo;});
+  t=t.replace(/\b(Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept?|Oct|Nov|Dec)\b\.?(?=\s\d{4})/g,mo=>SP_MON[mo.replace(".","")]);
+  t=t.replace(/\b(1[6-9]\d\d|20\d\d)[–-](\d\d)\b(?!\d)/g,"$1 to $2");
+  t=t.replace(/₹\s?([\d.,]*\d(?:\s(?:lakh|crore|thousand|million|billion))*)(\s(?:notes?|coins?))?/g,(m,a,n)=>n?a+"-rupee"+n:a+" rupees");
+  t=t.replace(/₹/g," rupees ");
+  t=t.replace(/(\d{1,3}(?:,\d\d)+,\d{3}(?:\.\d+)?)/g,m=>{const v=parseFloat(m.replace(/,/g,""));return Number.isInteger(v)?inWords(v):m.replace(/,/g,"");});
+  /* ranges and signs */
+  t=t.replace(/(\d)-(\d)(?!\d*\s?[A-Z]\b)/g,(m,a,b)=>a+" to "+b);
+  t=t.replace(/(\d)\s?%/g,"$1 percent").replace(/%/g," percent");
+  t=t.replace(/°\s?C\b/g," degrees Celsius").replace(/°\s?F\b/g," degrees Fahrenheit").replace(/°/g," degrees");
+  t=t.replace(/~\s?/g,"about ").replace(/≈/g," roughly ").replace(/≥/g," at least ").replace(/≤/g," at most ").replace(/≠/g," is not equal to ").replace(/±/g," plus or minus ").replace(/∝/g," is proportional to ").replace(/√/g," square root of ").replace(/÷/g," divided by ").replace(/π/g," pi ").replace(/Δ/g," change in ").replace(/λ/g," lambda ").replace(/[μµ]/g," micro").replace(/Ω/g," ohms").replace(/∞/g," infinity ");
+  t=t.replace(/(\S)\s?×\s?(\S)/g,"$1 times $2").replace(/×/g," times ");
+  t=t.replace(/([\dA-Za-z)])\/(\d|\()/g,"$1 over $2").replace(/\s\/\s/g,", ").replace(/\b([A-Za-z]|[A-Z][A-Za-z]?)\/([A-Za-z]|[A-Z][a-z]?)\b/g,"$1 over $2").replace(/(\d)\/([A-Za-z])\b/g,"$1 over $2").replace(/\b(?!(?:he|his|him)\b)([a-z]{1,3})\/(?!(?:she|her)\b)([a-z]{1,3})\b/g,"$1 over $2").replace(/([A-Za-z])\/([A-Za-z])/g,"$1 or $2").replace(/\//g," or ");
+  t=t.replace(/\s?⇒\s?/g," so ").replace(/\s?←\s?/g," from ");
+  t=t.replace(/(\S)\s?\+\s?(\S)/g,"$1 plus $2").replace(/−/g," minus ");
+  t=t.replace(/\s*=\s*/g," equals ").replace(/\s?>\s?/g," more than ").replace(/\s?<\s?/g," less than ").replace(/\+/g," plus ");
+  t=t.replace(/&/g," and ").replace(/·/g,", ").replace(/[“”"]/g,"").replace(/…/g,"...").replace(/\s[–—]\s/g,", ").replace(/[–—]/g,", ");
+  t=t.replace(/\(/g,", ").replace(/\)/g,", ").replace(/\[|\]/g,", ").replace(/;/g,",").replace(/\s*:\s*/g,": ");
+  t=t.replace(/\s*,\s*(,\s*)+/g,", ").replace(/,\s*:/g,":").replace(/:\s*,/g,":").replace(/,\s*$/,"").replace(/,\s*([.!?])/g,"$1").replace(/([.!?])\s*[.,]+/g,"$1").replace(/\.\s*\?/g,"?").replace(/\s+([,.!?])/g,"$1").replace(/,\./g,".").replace(/\s+/g," ").replace(/^[,\s]+/,"").trim();
+  return t;}
+
+/* lesson → script segments {t, k:"head"|"text"|"key", cue} */
+const SP_BOX={trick:"Memory trick.",twist:"Exam trap.",eng:"Engineer's view.",tip:"Tip.",story:"",remember:"Remember this."};
+function lessonScript(l){const segs=[];const push=(t,k,cue)=>{t=String(t||"").replace(/\s+/g," ").trim();if(t)segs.push({t,k:k||"text",cue:cue||""});};
+  l.sections.forEach(s=>{push(s.h,"head");
+    const d=new DOMParser().parseFromString("<div>"+s.html+"</div>","text/html").body.firstChild;
+    const walk=(el,k,cue)=>{[...el.childNodes].forEach(n=>{
+      if(n.nodeType===3){if(n.nodeValue.trim())push(n.nodeValue,k,cue);return;}
+      if(n.nodeType!==1)return;const c=n.classList;
+      if(/^(SCRIPT|STYLE|BUTTON|SVG|svg|INPUT)$/.test(n.nodeName)||c.contains("viz"))return;
+      if(c.contains("box")){const type=["trick","twist","eng","tip","story","remember"].find(x=>c.contains(x))||"";const bh=n.querySelector(".bh");const title=bh?bh.textContent:"";if(bh)bh.remove();
+        const key=type&&type!=="story";const cue=SP_BOX[type]||"";const dup=/trick|trap|twist|tip|view|remember|story/i.test(title);push((cue&&!dup?cue+" ":"")+title+(title&&!/[.!?:]$/.test(title)?".":""),key?"key":"head");walk(n,key?"key":"text","");return;}
+      if(c.contains("qc")){const q=n.querySelector("p");const opts=[...n.querySelectorAll("li")].map(x=>x.textContent);const a=+n.dataset.a;
+        push("Quick check. "+(q?q.textContent:""),"head");if(opts.length)opts.forEach((o,i)=>push("Option "+String.fromCharCode(65+i)+": "+o.replace(/[.\s]+$/,"")+".","text"));
+        segs.push({t:"",k:"pause",ms:3000});if(opts[a]!==undefined)push("Answer: "+opts[a].replace(/[.\s]+$/,"")+". "+(n.dataset.e||""),"key");return;}
+      if(n.nodeName==="TABLE"){const hs=[...n.querySelectorAll("tr")];hs.forEach(r=>{const cells=[...r.children].map(x=>x.textContent.trim()).filter(Boolean);if(!cells.length)return;const th=r.children[0]&&r.children[0].nodeName==="TH"&&[...r.children].every(x=>x.nodeName==="TH");if(th)return;push(cells[0]+": "+cells.slice(1).join(", ")+".",k,cue);});return;}
+      if(/^(P|LI|H\d|DIV|UL|OL|SECTION|BLOCKQUOTE|FIGURE|FIGCAPTION|TR|TD|TH|DL|DT|DD)$/.test(n.nodeName)){
+        if(/^(P|LI|H\d|DT|DD|FIGCAPTION)$/.test(n.nodeName)){let t=n.textContent.trim();if(t&&!/[.!?:]$/.test(t))t+=".";push(t,/^H\d$/.test(n.nodeName)?"head":k,cue);return;}
+        walk(n,k,cue);return;}
+      push(n.textContent,k,cue);});};
+    walk(d,"text","");segs.push({t:"",k:"pause",ms:700});});
+  return segs;}
+/* merge neighbouring plain text into longer utterances, keep heads/keys/pauses separate */
+function scriptUtterances(segs){const out=[];segs.forEach(s=>{if(s.k==="pause"){out.push(s);return;}const t=spokenText(s.t);if(!t)return;const last=out[out.length-1];
+    if(s.k==="text"&&last&&last.k==="text"&&last.t.length+t.length<600)last.t+=" "+t;else out.push({t,k:s.k});});return out;}
+
+function speechText(t){return spokenText(t);}
 /* voices: natural/online voices first; S.voice "" = automatic, "claude" = Claude voice, else a device voiceURI */
 const PRON={"Hooghly":"Hoogli","Haldia":"Huldiya","Durgapur":"Doorgapoor","Bardhaman":"Burdhomaan","Burdwan":"Burdwaan","Parganas":"Porgonas","Medinipur":"Maydinipoor","Midnapore":"Maydinipoor","Howrah":"How-rah","Paschim":"Poshchim","Purba":"Poorbo","Purulia":"Pooroolia","Udyam":"Oodyum","Murshidabad":"Moorshidaabaad","Birbhum":"Beerbhoom","Bankura":"Baankoora","Asansol":"Aasaansol","Malda":"Maalda","Dankuni":"Dunkoonee","Siliguri":"Shiligoori","Rishra":"Rishraa","Jharkhand":"Jhaarkhund","Falta":"Phulta","Dinajpur":"Dinaajpoor","Raniganj":"Raaneegunj","Damodar":"Daamodur","Andal":"Ondaal","Dooars":"Dooaars","Duars":"Dooaars","Sundarbans":"Shoondorbon","Sundarban":"Shoondorbon","Terai":"Teraai","Jalpaiguri":"Jolpaigoori","Chittaranjan":"Chittoronjon","Alipurduar":"Aleepoordooaar","Banglashree":"Baanglashree","Serampore":"Shreerampoor","Srirampur":"Shreerampoor","Shrirampur":"Shreerampoor","Banglar":"Baanglaar","Ganga":"Gunga","Manikanchan":"Monikaanchon","Dhaniakhali":"Dhoneyakhaali","Shantipur":"Shaanteepoor","Silpasathi":"Shilposaathi","Kharagpur":"Khorogpoor","Tajpur":"Taajpoor","Odisha":"Oreesa","Farakka":"Phoruckaa","Bhabishyat":"Bhobishyot","Jhargram":"Jhaargraam","Dadanpatrabar":"Daadunpatraabaar","Sagar":"Saagor","Kangsabati":"Kongshaabotee","Kalimpong":"Kaalimpong","Deocha":"Dayocha","Pachami":"Paachaami","Bishnupur":"Bishnoopoor","Joynagar":"Joynogor","Prasad":"Prosaad","Baluchari":"Baaloochori","Gobindobhog":"Gobindo bhog","Bakreshwar":"Bokreshshor","Singur":"Shingoor","Burnpur":"Burnpoor","Behar":"Bihaar","Dakshin":"Dokkhin","Tulaipanji":"Toolaipaanji","Titagarh":"Teetaagor","Kulti":"Koolti","Kalyani":"Kollaani","Rasogolla":"Roshogolla","Chhau":"Chhow","Mayurakshi":"Moyoorakshi","Bhagirathi":"Bhaageerothi","Samadhaan":"Sumaadhaan","Ankurhati":"Onkoorhaati","Bantala":"Baantola","Kishore":"Kishor","Karmasathi":"Kormosaathi","Sagardighi":"Saagordeeghi","Gorgaburu":"Gorgaabooroo","Ghusuri":"Ghooshoori","Chandra":"Chondro","Vishwakarma":"Bishwokormaa","Rupnarayanpur":"Roopnaaraayonpoor","Rupnarayan":"Roopnaaraayon","Syama":"Shyaama","Mookerjee":"Mookherjee","Vidyasagar":"Biddyasaagor","Krishnanagar":"Krishnonogor","Shishu":"Shishoo","Jaldapara":"Joldaapaara","Faruk":"Faarook","Suri":"Shoori","Singalila":"Shingaaleela","Ajodhya":"Ojodhya","Barakar":"Baraakor","Mahalanobis":"Mohalanobish","Swapan":"Shopon","Dasgupta":"Daasgoopto","Naihati":"Noihaati","Tantuja":"Taantooja","Panchmura":"Paanchmoora","Chhattisgarh":"Chhutteesgur","Yojana":"Yojnaa","Raiganj":"Raigunj","Kulpi":"Koolpi","Kolaghat":"Kolaghaat","Santaldih":"Shaantaaldih","Massanjore":"Mossaanjor","Nath":"Naath","Arun":"Aroon","Kushmandi":"Kooshmondi","Tossa":"Torsa","Sankrail":"Shaankrail","Arambagh":"Aaraambaag","Jangipur":"Jongeepoor","Barrackpore":"Barrackpoor","Santiniketan":"Shaantiniketon","Shantiniketan":"Shaantiniketon","Bangla":"Baangla","Adhiniyam":"Odhiniyom","Chitra":"Chitro","Sandakphu":"Saandakphoo","Ajay":"Ojoy","Dwarakeswar":"Dwaarokeshshor","Silabati":"Shilaaboti","Tilpara":"Tilpaara","Keleghai":"Kelleghai","Haldi":"Huldi","Kumari":"Koomaari","Mukutmanipur":"Mookootmoneepoor","Panagarh":"Paanaagor","Sitabhog":"Seetaabhog","Mihidana":"Mihidaana","Basirhat":"Bosheerhaat","Charida":"Choridaa","Sabang":"Shobong","Tamluk":"Tomlook","Biswa":"Bishwo","Surya":"Sooryo","Ghar":"Ghor","Sankosh":"Shonkosh","Bowreah":"Bowreeah","Rajendra":"Raajendro","Digha":"Deegha","Fazli":"Fozli","Laxmanbhog":"Lokkhonbhog","Himsagar":"Himsaagor","Dokra":"Dokraa","Prakalpa":"Prokolpo","Domjur":"Domjoor","Kazi":"Kaazi","Nazrul":"Nozrool","Baharampur":"Bohorompoor","Bazar":"Baazaar","Balurghat":"Baaloorghaat","Chinsurah":"Chinshoora","Patachitra":"Pottochitro","Bidhannagar":"Bidhaannogor","Phulia":"Phooliya","Bankim":"Bonkim","Buxa":"Buxaa","Sanrakshan":"Sunrukshun","Sonnagar":"Sonnogor","Rarh":"Raarh","Mahananda":"Mohaanondo","Tilaiya":"Tilaiyaa","Konar":"Konaar","Satyendra":"Shottendro","Subhas":"Shoobhaash","Saha":"Shaaha","Suvendu":"Shoobhendoo","Adhikari":"Odhikaari","Uluberia":"Ooloobayria","Contai":"Kaanthi","Khadi":"Khaadi","Shilpa":"Shilpo","Udyan":"Oodyaan","Sitalpati":"Sheetolpaati","Evam":"Evum","Samvardhan":"Sumvordhun","Bandel":"Byaandel","Padma":"Podda","Kasai":"Kaashai","Panchet":"Paanchet","Gangani":"Gonggoni","Acharya":"Aachaariyo","Deshbandhu":"Deshbondhoo","Muppandal":"Mooppandal","Kalpakkam":"Kalpaakkam","Bhatkar":"Bhatkur","Trinamool":"Trinomool","Dipak":"Deepok","Barman":"Bormon","Dewanganj":"Dewaangunj","Harinsingha":"Horinshingho","Bharat":"Bhaarot","Alipore":"Aleepoor","Barasat":"Baaraashot","Muft":"Mooft","Bijli":"Bijlee","Mitra":"Mitro","Bhadreswar":"Bhodreshshor","Chota":"Chhotaa","Chamtaburu":"Chaamtaabooroo","Susunia":"Shooshooniya","Rajmahal":"Raajmohol","Subarnarekha":"Shoobornorekha","Kosi":"Koshi","Kalbaishakhi":"Kaalboishaakhi","Manbhum":"Maanbhoom","Bally":"Baali","Bauria":"Bowriya","Meghnad":"Meghnaad","Bhadla":"Bhodla","Turga":"Toorga","Upendra":"Oopendro","Barun":"Boroon","Puja":"Poojo","Rabindrasangeet":"Robindro shongeet","Rabindranath":"Robindronaath","Durga":"Doorga","Burrabazar":"Boro baazaar","Chilika":"Chilka","Shyam":"Shyaam","Cuttack":"Cuttuck","Parivesh":"Poribesh","Paribesh":"Poribesh","Dwarkanath":"Dwaarkaanaath","Nayachar":"Nayaachor","Jambudwip":"Jomboodweep","Singareni":"Singaareni","Chandannagar":"Chondonnogor","Gitanjali":"Geetaanjoli","Suraksha":"Soorukkhaa","Prakriti":"Prokriti","Vividhata":"Vividhtaa","Basu":"Boshoo","Rajarhat":"Raajaarhaat","Garad":"Gorod","Nakshi":"Nokshi","Kantha":"Kaantha","Sholapith":"Sholaapith","Udyog":"Oodyog","Bharatmala":"Bhaarotmaala","Khirsapati":"Kheershaapaati","Rampurhat":"Raampoorhaat","Tantusree":"Taantooshree","Manjusha":"Monjoosha","Mechi":"Maychi","Torsa":"Torsha","Jaldhaka":"Joldhaka","Trikut":"Trikoot","Katwa":"Kaatowa","Mayurjharna":"Moyoorjhorna","Jorepokhri":"Jorpokhri","Chapramari":"Chaapraamaari","Sajnekhali":"Shojnekhaali","Bethuadahari":"Baythooadohori","Ballavpur":"Bollobhpoor","Barjora":"Borjora","Shakti":"Shokti","Garibi":"Goreebi","Hatao":"Hutaao","Janata":"Jonota","Bidhan":"Bidhaan","Prafulla":"Proffullo","Ranaghat":"Raanaaghaat","Hirapur":"Heeraapoor","Sidrapong":"Siddraapong","Numaligarh":"Noomaaligor","Niwas":"Niwaas","Samhita":"Sunhitaa","Unnat":"Oonnot","Khavda":"Khaavda","Panchamrit":"Punchaamrit","Purvas":"Poorvas","Chandrima":"Chondrimaa","Bhattacharya":"Bhottaachaarjo","Bolpur":"Bolpoor","Kanyashree":"Konnyashree","Lakshmir":"Lokkhir","Bhandar":"Bhaandaar","Barind":"Boreendro","Biharinath":"Biharinaath","Raidak":"Raidok","Dhulian":"Dhooliyaan","Gajoldoba":"Gojoldoba","Garhbeta":"Gorbeta","Baishakh":"Boishaakh","Gorumara":"Gorumaara","Kunur":"Koonoor","Jagadish":"Jogodeesh","Kakdwip":"Kaakdweep","Emambagh":"Imaambaag","Audyogik":"Oudyogik","Vikas":"Vikaas","Mita":"Mitaa","Arjun":"Orjoon","Sunil":"Shoonil","Netaji":"Netaaji","Sealdah":"Sheeyaaldo","Tangail":"Taangail","Madur":"Maadoor","Vishwas":"Vishwaas","Bhawan":"Bhovon","Aakash":"Aakaash","Sarkar":"Sorkaar","Tarun":"Toroon","Esha":"Eesha","Bina":"Beena","Asha":"Aasha","Rina":"Reena","Anup":"Onoop","Taraknath":"Taaroknaath","Palit":"Paalit","Jadavpur":"Jaadobpoor","Bhowanipur":"Bhowaaneepoor","Tant":"Taant","Raichak":"Raichok","Kaljani":"Kaaljaani","Prasanta":"Proshaanto","Bansberia":"Baansbayria","Gariahat":"Goriyaahaat","Phulbari":"Phoolbaari","Kolkata":"Kolkaata","Bengali":"Bengaali"};
 const PRON_RE=new RegExp("\\b("+Object.keys(PRON).sort((a,b)=>b.length-a.length).join("|")+")\\b","g");
@@ -825,7 +985,7 @@ function pickVoice(){const vs=engVoices();const c=curVoice();if(c&&c!=="claude")
 let VOV=null;function curVoice(){return VOV!==null?VOV:(S.voice||"");}
 function useDevice(){const c=curVoice();return !TTS||(c&&c!=="claude");}
 function voiceRate(){return S.vrate||0.95;}
-function speakDevice(t,v,onend){v=v||pickVoice();const u=new SpeechSynthesisUtterance(pronFix(t,v));u.voice=v;if(u.voice)u.lang=u.voice.lang;u.rate=voiceRate();if(onend)u.onend=onend;speechSynthesis.speak(u);return u;}
+function speakDevice(t,v,onend,rate){v=v||pickVoice();const u=new SpeechSynthesisUtterance(pronFix(t,v));u.voice=v;if(u.voice)u.lang=u.voice.lang;u.rate=voiceRate()*(rate||1);if(onend)u.onend=onend;speechSynthesis.speak(u);return u;}
 try{if(window.speechSynthesis)speechSynthesis.getVoices();}catch(e){}
 async function say(text,ov){const my=++SPK;stopSay(true);const t=speechText(text);if(!t)return;
   try{if(!TTS&&window.claude&&claude.use)TTS=await claude.use("tts");}catch(e){TTS=null;}
@@ -833,7 +993,7 @@ async function say(text,ov){const my=++SPK;stopSay(true);const t=speechText(text
   VOV=ov===undefined?null:ov;const dev=useDevice();const pv=dev?pickVoice():null;VOV=null;
   if(!dev){try{await TTS.speak([{text:t.slice(0,1800),language:"en"}]);return;}catch(e){}}
   if(window.speechSynthesis){(t.match(/[^.!?]+[.!?]*/g)||[t]).forEach(p=>speakDevice(p.trim(),pv));}}
-function stopSay(keep){if(!keep)SPK++;try{if(TTS)TTS.stop();}catch(e){}try{if(window.speechSynthesis)speechSynthesis.cancel();}catch(e){}}
+function stopSay(keep){PLAYN++;if(!keep)SPK++;try{if(TTS)TTS.stop();}catch(e){}try{if(window.speechSynthesis)speechSynthesis.cancel();}catch(e){}}
 /* listening: claude.ai dictation where available, otherwise the browser's own speech recognition */
 let DICT=null,DICTP=null;
 function dictReady(){if(!DICTP&&window.claude&&claude.use)DICTP=claude.use("dictation").then(d=>{DICT=d;return d;}).catch(()=>null);return DICTP||Promise.resolve(null);}
@@ -909,24 +1069,31 @@ function matchScore(said,answer){
   if(wrongNum.length)score=Math.min(score,0.3);
   return {score,parts:parts.map(p=>({text:p.text,ok:p.ok,approx:!!p.approx})),wrongNum};
 }
+/* play a spoken script: headings get a pause, key parts (tricks, traps, answers) are slower with pauses around them */
+let PLAYN=0;
+function playScript(utts,onDone,onStep){const my=++PLAYN;let i=0;
+  if(!useDevice()){const lines=[];utts.forEach(u=>{if(u.k==="pause")return;for(let k=0;k<u.t.length;k+=1800)lines.push({text:u.t.slice(k,k+1800),language:"en"});});
+    Promise.resolve().then(()=>TTS.speak(lines)).catch(()=>{}).then(()=>{if(my===PLAYN&&onDone)onDone();});return;}
+  const v=pickVoice();
+  const next=()=>{if(my!==PLAYN)return;if(i>=utts.length){if(onDone)onDone();return;}const n=i++;const u=utts[n];if(onStep)onStep(n);
+    if(u.k==="pause"){setTimeout(next,u.ms||600);return;}
+    const parts=u.t.match(/[^.!?]+[.!?]*/g)||[u.t];const rate=u.k==="key"?0.88:1;const after=u.k==="head"?400:u.k==="key"?600:150;
+    setTimeout(()=>{if(my!==PLAYN)return;parts.forEach((p,j)=>speakDevice(p.trim(),v,j===parts.length-1?()=>setTimeout(next,after):null,rate));},u.k==="key"?300:0);};
+  next();}
+function stopScript(){PLAYN++;try{speechSynthesis.cancel();}catch(e){}try{if(TTS)TTS.stop();}catch(e){}}
 async function setupListen(l){
-  const b=$("#listen"); if(!b)return;
+  const b=$("#listen"),sb=$("#script");if(!b)return;
   if(!TTS&&window.claude&&claude.use){try{TTS=await claude.use("tts");}catch(e){TTS=null;}}
   if(!document.body.contains(b))return;
-  if(useDevice()){if(!window.speechSynthesis)return;b.hidden=false;let on=false;
-    b.onclick=()=>{if(on){speechSynthesis.cancel();on=false;b.textContent="Listen";return;}
-      const t=l.sections.map(s=>s.h+". "+stripHtml(s.html)).join(" ");const parts=t.match(/[^.!?]+[.!?]*/g)||[t];on=true;b.textContent="Stop listening";
-      const voice=pickVoice();
-      parts.forEach((p,i)=>speakDevice(p,voice,i===parts.length-1?()=>{on=false;if(document.body.contains(b))b.textContent="Listen";}:null));};
-    return;}
-  b.hidden=false; let speaking=false;
-  b.onclick=async()=>{
-    if(speaking){try{TTS.stop();}catch(e){}speaking=false;b.textContent="Listen";return;}
-    const lines=[];l.sections.forEach(s=>{const t=s.h+". "+stripHtml(s.html);for(let i=0;i<t.length;i+=1800)lines.push({text:t.slice(i,i+1800),language:"en"});});
-    speaking=true;b.textContent="Stop listening";
-    try{await TTS.speak(lines);}catch(e){if(e&&e.code==="not_granted")b.hidden=true;}
-    speaking=false;if(document.body.contains(b))b.textContent="Listen";
-  };
+  const utts=scriptUtterances(lessonScript(l));const panel=$("#scriptpanel");
+  const showPanel=()=>{panel.innerHTML=`<p class="small muted" style="margin:0 0 6px">This is exactly what the voice will say. Highlighted lines are read slower, with a pause.</p>`+utts.map(u=>u.k==="pause"?'<div class="sp-p">· · ·</div>':`<div class="sp-${u.k}">${esc(u.t)}</div>`).join("");panel.hidden=false;sb.textContent="Hide spoken script";};
+  if(sb){sb.hidden=false;sb.onclick=()=>{if(panel.hidden)showPanel();else{panel.hidden=true;sb.textContent="📝 Spoken script";}};}
+  if(useDevice()&&!window.speechSynthesis)return;
+  b.hidden=false;let on=false;
+  b.onclick=()=>{if(on){stopScript();on=false;b.textContent="Listen";return;}
+    stopSay();on=true;b.textContent="Stop listening";
+    playScript(utts,()=>{on=false;if(document.body.contains(b))b.textContent="Listen";const c=panel.querySelector(".now");if(c)c.classList.remove("now");},
+      n=>{if(panel.hidden)return;const rows=panel.querySelectorAll("div");rows.forEach(r=>r.classList.remove("now"));const r=rows[n];if(r){r.classList.add("now");r.scrollIntoView({block:"nearest",behavior:"smooth"});}});};
 }
 
 /* ---------- ask Claude ---------- */
