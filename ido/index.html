@@ -944,8 +944,8 @@ function spokenText(raw){let t=String(raw||"");
 
 /* lesson → script segments {t, k:"head"|"text"|"key", cue} */
 const SP_BOX={trick:"Memory trick.",twist:"Exam trap.",eng:"Engineer's view.",tip:"Tip.",story:"",remember:"Remember this."};
-function lessonScript(l){const segs=[];const push=(t,k,cue)=>{t=String(t||"").replace(/\s+/g," ").trim();if(t)segs.push({t,k:k||"text",cue:cue||""});};
-  l.sections.forEach(s=>{push(s.h,"head");
+function lessonScript(l){const segs=[];let SEC=0;const push=(t,k,cue)=>{t=String(t||"").replace(/\s+/g," ").trim();if(t)segs.push({t,k:k||"text",cue:cue||"",sec:SEC});};
+  l.sections.forEach((s,si)=>{SEC=si;push(s.h,"head");
     const d=new DOMParser().parseFromString("<div>"+s.html+"</div>","text/html").body.firstChild;
     const walk=(el,k,cue)=>{[...el.childNodes].forEach(n=>{
       if(n.nodeType===3){if(n.nodeValue.trim())push(n.nodeValue,k,cue);return;}
@@ -955,17 +955,17 @@ function lessonScript(l){const segs=[];const push=(t,k,cue)=>{t=String(t||"").re
         const key=type&&type!=="story";const cue=SP_BOX[type]||"";const dup=/trick|trap|twist|tip|view|remember|story/i.test(title);push((cue&&!dup?cue+" ":"")+title+(title&&!/[.!?:]$/.test(title)?".":""),key?"key":"head");walk(n,key?"key":"text","");return;}
       if(c.contains("qc")){const q=n.querySelector("p");const opts=[...n.querySelectorAll("li")].map(x=>x.textContent);const a=+n.dataset.a;
         push("Quick check. "+(q?q.textContent:""),"head");if(opts.length)opts.forEach((o,i)=>push("Option "+String.fromCharCode(65+i)+": "+o.replace(/[.\s]+$/,"")+".","text"));
-        segs.push({t:"",k:"pause",ms:3000});if(opts[a]!==undefined)push("Answer: "+opts[a].replace(/[.\s]+$/,"")+". "+(n.dataset.e||""),"key");return;}
+        segs.push({t:"",k:"pause",ms:3000,sec:SEC});if(opts[a]!==undefined)push("Answer: "+opts[a].replace(/[.\s]+$/,"")+". "+(n.dataset.e||""),"key");return;}
       if(n.nodeName==="TABLE"){const hs=[...n.querySelectorAll("tr")];hs.forEach(r=>{const cells=[...r.children].map(x=>x.textContent.trim()).filter(Boolean);if(!cells.length)return;const th=r.children[0]&&r.children[0].nodeName==="TH"&&[...r.children].every(x=>x.nodeName==="TH");if(th)return;push(cells[0]+": "+cells.slice(1).join(", ")+".",k,cue);});return;}
       if(/^(P|LI|H\d|DIV|UL|OL|SECTION|BLOCKQUOTE|FIGURE|FIGCAPTION|TR|TD|TH|DL|DT|DD)$/.test(n.nodeName)){
         if(/^(P|LI|H\d|DT|DD|FIGCAPTION)$/.test(n.nodeName)){let t=n.textContent.trim();if(t&&!/[.!?:]$/.test(t))t+=".";push(t,/^H\d$/.test(n.nodeName)?"head":k,cue);return;}
         walk(n,k,cue);return;}
       push(n.textContent,k,cue);});};
-    walk(d,"text","");segs.push({t:"",k:"pause",ms:700});});
+    walk(d,"text","");segs.push({t:"",k:"pause",ms:700,sec:SEC});});
   return segs;}
 /* merge neighbouring plain text into longer utterances, keep heads/keys/pauses separate */
 function scriptUtterances(segs){const out=[];segs.forEach(s=>{if(s.k==="pause"){out.push(s);return;}const t=spokenText(s.t);if(!t)return;const last=out[out.length-1];
-    if(s.k==="text"&&last&&last.k==="text"&&last.t.length+t.length<600)last.t+=" "+t;else out.push({t,k:s.k});});return out;}
+    if(s.k==="text"&&last&&last.k==="text"&&last.sec===s.sec&&last.t.length+t.length<600)last.t+=" "+t;else out.push({t,k:s.k,sec:s.sec});});return out;}
 
 function speechText(t){return spokenText(t);}
 /* voices: natural/online voices first; S.voice "" = automatic, "claude" = Claude voice, else a device voiceURI */
@@ -1085,15 +1085,25 @@ async function setupListen(l){
   const b=$("#listen"),sb=$("#script");if(!b)return;
   if(!TTS&&window.claude&&claude.use){try{TTS=await claude.use("tts");}catch(e){TTS=null;}}
   if(!document.body.contains(b))return;
-  const utts=scriptUtterances(lessonScript(l));const panel=$("#scriptpanel");
-  const showPanel=()=>{panel.innerHTML=`<p class="small muted" style="margin:0 0 6px">This is exactly what the voice will say. Highlighted lines are read slower, with a pause.</p>`+utts.map(u=>u.k==="pause"?'<div class="sp-p">· · ·</div>':`<div class="sp-${u.k}">${esc(u.t)}</div>`).join("");panel.hidden=false;sb.textContent="Hide spoken script";};
+  const all=scriptUtterances(lessonScript(l));const panel=$("#scriptpanel");
+  /* follow bite-size reading: only the part on screen, unless "Show all" is on */
+  const st=()=>window.STEP&&window.STEP.id===l.id?window.STEP:{cur:0,n:l.sections.length,all:true};
+  const partUtts=()=>{const s=st();if(s.all)return all;const u=all.filter(x=>x.sec===s.cur);
+    u.push({t:"",k:"pause",ms:300});
+    u.push({t:s.cur<s.n-1?"End of part "+(s.cur+1)+" of "+s.n+". Tap Next part when you're ready.":"That's the end of the lesson.",k:"head"});return u;};
+  const showPanel=()=>{const u=partUtts();const s=st();panel.innerHTML=`<p class="small muted" style="margin:0 0 6px">${s.all?"The whole lesson":"Part "+(s.cur+1)+" of "+s.n}: exactly what the voice will say. Highlighted lines are read slower, with a pause.</p>`+u.map(x=>x.k==="pause"?'<div class="sp-p">· · ·</div>':`<div class="sp-${x.k}">${esc(x.t)}</div>`).join("");panel.hidden=false;sb.textContent="Hide spoken script";};
   if(sb){sb.hidden=false;sb.onclick=()=>{if(panel.hidden)showPanel();else{panel.hidden=true;sb.textContent="📝 Spoken script";}};}
   if(useDevice()&&!window.speechSynthesis)return;
-  b.hidden=false;let on=false;
-  b.onclick=()=>{if(on){stopScript();on=false;b.textContent="Listen";return;}
-    stopSay();on=true;b.textContent="Stop listening";
-    playScript(utts,()=>{on=false;if(document.body.contains(b))b.textContent="Listen";const c=panel.querySelector(".now");if(c)c.classList.remove("now");},
+  b.hidden=false;let on=false,mode=false;
+  const label=()=>{if(document.body.contains(b))b.textContent=on?"Stop listening":mode?"Listen to this part":"Listen";};
+  const play=()=>{stopSay();on=true;mode=true;label();if(!panel.hidden)showPanel();
+    playScript(partUtts(),()=>{on=false;label();const c=panel.querySelector(".now");if(c)c.classList.remove("now");},
       n=>{if(panel.hidden)return;const rows=panel.querySelectorAll("div");rows.forEach(r=>r.classList.remove("now"));const r=rows[n];if(r){r.classList.add("now");r.scrollIntoView({block:"nearest",behavior:"smooth"});}});};
+  b.onclick=()=>{if(on){stopScript();on=false;mode=false;label();return;}play();};
+  const onStep=e=>{if(!document.body.contains(b)){window.removeEventListener("stepchange",onStep);return;}
+    if(e.detail.id!==l.id)return;if(!panel.hidden)showPanel();
+    if(on||mode){stopScript();on=false;play();}};
+  window.addEventListener("stepchange",onStep);
 }
 
 /* ---------- ask Claude ---------- */
@@ -1732,6 +1742,7 @@ function setupSteps(id,l){
   const secs=[...app.querySelectorAll(".lsec")];const n=secs.length;const bar=$("#stepbar"),nav=$("#stepnav");
   S.pos=S.pos||{};let cur=Math.min(S.pos[id]||0,n-1);const all=!!S.stepAll;
   const draw=()=>{
+    window.STEP={id,cur,n,all:!!(all||S.stepAll)};
     if(all||S.stepAll){secs.forEach(x=>x.hidden=false);bar.innerHTML=`<button class="btn sm ghost" id="stepmode">Read in bite-size parts</button>`;nav.innerHTML="";
       $("#stepmode").onclick=()=>{S.stepAll=false;persist("s");viewLesson(id);};return;}
     secs.forEach((x,i)=>x.hidden=i!==cur);
@@ -1739,9 +1750,9 @@ function setupSteps(id,l){
     bar.innerHTML=`<div class="sb-top"><span class="small"><b>Part ${cur+1} of ${n}</b> · ${cur===n-1?"wrap-up":"about "+mins+" min left"}</span><button class="linkbtn small" id="stepmode">Show all</button></div><div class="sb-dots">${secs.map((_,i)=>`<i class="${i<cur?"d":i===cur?"c":""}"></i>`).join("")}</div>`;
     nav.innerHTML=`${cur>0?`<button class="btn" id="sprev">‹ Back</button>`:"<span></span>"}${cur<n-1?`<button class="btn primary" id="snext">${cur===n-2?"Finish: game and recap ›":"Next part ›"}</button>`:""}`;
     nav.hidden=cur===n-1&&cur===0;
-    const go=d=>{cur+=d;S.pos[id]=cur;persist("s");draw();bar.scrollIntoView({behavior:"smooth",block:"start"});if(d>0&&cur>0&&cur%2===0&&cur<n-1)toastPep();};
+    const go=d=>{cur+=d;S.pos[id]=cur;persist("s");draw();window.dispatchEvent(new CustomEvent("stepchange",{detail:{id,cur,n}}));bar.scrollIntoView({behavior:"smooth",block:"start"});if(d>0&&cur>0&&cur%2===0&&cur<n-1)toastPep();};
     const p=$("#sprev"),q=$("#snext");if(p)p.onclick=()=>go(-1);if(q)q.onclick=()=>go(1);
-    $("#stepmode").onclick=()=>{S.stepAll=true;persist("s");draw();};
+    $("#stepmode").onclick=()=>{S.stepAll=true;persist("s");draw();window.dispatchEvent(new CustomEvent("stepchange",{detail:{id,cur,n}}));};
     if(cur===n-1){const back=document.createElement("div");back.className="row";back.innerHTML=`<button class="btn sm" id="sprev2">‹ Back to the lesson</button>`;nav.innerHTML="";nav.appendChild(back);$("#sprev2").onclick=()=>go(-1);}
   };
   draw();
