@@ -171,7 +171,10 @@ input[type=date]{font:inherit;padding:6px 10px;border:1px solid var(--line);bord
 .sp .sp-p{color:var(--muted);text-align:center;padding:0}
 .sp .now{background:rgba(227,173,85,.25)}
 [lang="bn"],.bnt,.bnpop{font-family:"Noto Sans Bengali","Hind Siliguri","Kohinoor Bangla","Bangla Sangam MN",var(--font-ui)}
-.lesson .bnt{color:var(--gold);font-size:.86em;cursor:pointer;white-space:nowrap;border-bottom:1px dotted var(--gold)}
+.lesson .bnt{color:var(--gold);font-size:.86em;cursor:pointer;white-space:normal;overflow-wrap:anywhere;text-decoration:underline dotted var(--gold);text-underline-offset:3px}
+.lesson{overflow-wrap:break-word}
+.lesson table{display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+#app{overflow-x:hidden}
 .bnpop{position:fixed;z-index:60;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;max-width:300px;box-shadow:0 8px 30px rgba(0,0,0,.25);font-size:15px;line-height:1.6}
 .bnpop .bnw{color:var(--gold);font-size:17px}
 .bnans{font-size:17px;line-height:1.85}.bnpass{font-size:18px;line-height:1.95}
