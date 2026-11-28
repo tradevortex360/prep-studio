@@ -180,6 +180,10 @@ input[type=date]{font:inherit;padding:6px 10px;border:1px solid var(--line);bord
 .bnans{font-size:17px;line-height:1.85}.bnpass{font-size:18px;line-height:1.95}
 .bngl td:first-child{width:38%}
 .inp{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit}
+body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+input,textarea,[contenteditable]{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
+#wmark{position:fixed;inset:0;pointer-events:none;z-index:45;background-repeat:repeat}
+@media print{#wmark{position:fixed;display:block;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 .rate .btn small{white-space:nowrap}
 .rate .btn.primary small{color:inherit;opacity:.75}
 .rate{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
@@ -710,7 +714,18 @@ function planEntryLabel(e){
 let USERNAME="";
 function greetText(){const h=new Date().getHours();const g=h<5?"Burning the midnight oil":h<12?"Good morning":h<17?"Good afternoon":"Good evening";const first=(USERNAME||"").trim().split(/\s+/)[0];return first?`${g}, ${first}`:g;}
 async function loadName(){try{let n="";if(ENV.userName)n=await ENV.userName();else if(window.claude&&claude.use){const u=await claude.use("user");if(u){const me=await u.me();n=me&&me.name||"";}}
-  if(n){USERNAME=n;const el=document.getElementById("hello");if(el)el.textContent=greetText();}}catch(e){}}
+  if(n){USERNAME=n;const el=document.getElementById("hello");if(el)el.textContent=greetText();setWatermark(n);}}catch(e){}}
+/* faint name watermark across every screen, so a shared screenshot shows whose copy it came from */
+function setWatermark(name){try{const t=String(name).trim().slice(0,40)+" · Prep Studio";const e=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;");
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="340" height="220"><text x="20" y="130" transform="rotate(-28 170 110)" font-family="sans-serif" font-size="17" fill="rgb(128,128,128)" fill-opacity="0.13">${e(t)}</text></svg>`;
+  let w=document.getElementById("wmark");if(!w){w=document.createElement("div");w.id="wmark";w.setAttribute("aria-hidden","true");document.body.appendChild(w);}
+  w.style.backgroundImage=`url("data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}")`;}catch(e){}}
+/* basic copy protection: no text selection, long-press menu or copy outside text boxes */
+(function(){const ok=t=>t&&t.closest&&t.closest("input,textarea,[contenteditable]");
+  document.addEventListener("contextmenu",e=>{if(!ok(e.target))e.preventDefault();});
+  document.addEventListener("copy",e=>{const a=document.activeElement;if(!(a&&a.matches&&a.matches("input,textarea")))e.preventDefault();});
+  document.addEventListener("cut",e=>{const a=document.activeElement;if(!(a&&a.matches&&a.matches("input,textarea")))e.preventDefault();});
+  document.addEventListener("dragstart",e=>{if(!ok(e.target))e.preventDefault();});})();
 function dayItems(ti,label){
     const cal=MAN.calendar;const e=cal[ti]; const d=dayDate(ti);
     const items=[]; const PI=Object.fromEntries(planItems(ti).map(x=>[x.k,x]));
