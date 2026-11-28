@@ -1,0 +1,15 @@
+# Static site: no build step. Netlify serves the repository as it is.
+[build]
+  publish = "."
+  command = ""
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[headers]]
+  for = "/ido/*.html"
+  [headers.values]
+    Cache-Control = "no-cache"

@@ -315,7 +315,7 @@ nav.tabs a .badge{position:absolute;margin-left:18px;margin-top:-2px;min-width:1
 </style>
 <script>
 window.PREP_ENV=(function(){
-  const CFG={"clientId": "1051177919991-lfq04am73d56tti2seefav5v0a7em48d.apps.googleusercontent.com", "stats": {"modules": 7, "lessons": 73, "lessonQ": 852, "bankQ": 979, "hardQ": 119, "pastQ": 377, "cards": 1789, "visuals": 161, "bnTerms": 1455, "interviewQ": 28}};
+  const CFG={"clientId": "1051177919991-lfq04am73d56tti2seefav5v0a7em48d.apps.googleusercontent.com", "stats": {"modules": 7, "lessons": 73, "lessonQ": 852, "bankQ": 979, "hardQ": 119, "pastQ": 377, "cards": 1789, "visuals": 161, "bnTerms": 1455, "interviewQ": 28}, "pay": {"upi": "", "payee": "", "price": 0, "whatsapp": "", "note": "Prep Studio IDO"}};
   const LSK="ps_ido_";
   const te=new TextEncoder(), td=new TextDecoder();
   const b64d=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
@@ -335,6 +335,37 @@ window.PREP_ENV=(function(){
     const raw=new Uint8Array(await crypto.subtle.decrypt({name:"AES-GCM",iv:b64d(e.iv)},kek,b64d(e.wrapped)));
     let name="";try{if(e.nm)name=td.decode(await crypto.subtle.decrypt({name:"AES-GCM",iv:b64d(e.iv2)},kek,b64d(e.nm)));}catch(x){}
     return {raw,id,name};
+  }
+  function payScreen(){
+    const P=CFG.pay||{}; const app=document.getElementById("app"); const fmt=n=>Number(n||0).toLocaleString("en-IN");
+    const esc=t=>String(t||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+    const mobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
+    const msg=`Hi, I have paid ₹${P.price} for the Prep Studio IDO course. Screenshot attached.\nMy name (to show in the app): `;
+    const wa="https://wa.me/"+String(P.whatsapp).replace(/[^0-9]/g,"")+"?text="+encodeURIComponent(msg);
+    const step=(n,t,d)=>`<div style="display:flex;gap:12px;align-items:flex-start"><div style="flex:0 0 30px;height:30px;border-radius:50%;background:#16231f;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">${n}</div><div><b>${t}</b>${d?`<div class="small muted" style="margin-top:2px">${d}</div>`:""}</div></div>`;
+    app.innerHTML=`<div class="stack" style="max-width:520px;margin:18px auto 40px;gap:16px">
+      <button type="button" class="btn" id="payback" style="align-self:flex-start">← Back</button>
+      <div class="card stack" style="gap:14px;text-align:center;align-items:center">
+        <div class="eyebrow">Get your access code</div>
+        <div style="font-size:34px;font-weight:800;color:var(--ink)">₹${fmt(P.price)}</div>
+        <div class="small muted" style="margin-top:-8px">one-time · full course till the exam · your own personal code</div>
+        <div style="width:230px;max-width:70vw;background:#fff;padding:10px;border-radius:12px;border:1px solid var(--line)">${(P.qr||"").replace("<svg","<svg style=\"width:100%;height:auto;display:block\"")}</div>
+        <div class="small">Scan with any UPI app (GPay, PhonePe, Paytm, BHIM)</div>
+        <div class="small muted">Paying to <b>${esc(P.payee)}</b> · <span style="user-select:all;-webkit-user-select:all">${esc(P.upi)}</span> <button type="button" class="btn" id="paycopy" style="padding:2px 8px;font-size:12px">Copy</button></div>
+        ${mobile&&P.uri?`<a class="btn primary" href="${esc(P.uri)}" style="width:100%;background:#16231f;border-color:#16231f;color:#fff">Pay ₹${fmt(P.price)} with a UPI app on this phone</a>`:""}
+      </div>
+      <div class="card stack" style="gap:12px">
+        ${step(1,"Pay ₹"+fmt(P.price),"Scan the QR"+(mobile?" or tap the button above":"")+". The amount is filled in for you.")}
+        ${step(2,"Take a screenshot of the payment","It should show the amount and the UPI reference (UTR) number.")}
+        ${step(3,"Send it on WhatsApp","Tap below, attach the screenshot and write the name you want shown in the app.")}
+        ${step(4,"Get your code","After the payment is checked you get your personal code on WhatsApp, usually the same day. Come back here and enter it.")}
+        <a class="btn primary" href="${wa}" target="_blank" rel="noopener" style="width:100%;background:#25d366;border-color:#25d366;color:#fff;font-weight:700">Share screenshot on WhatsApp</a>
+      </div>
+      <p class="small muted" style="text-align:center;margin:0">Please don't share your code: it carries your name inside the app.</p>
+    </div>`;
+    document.getElementById("payback").onclick=()=>gate("");
+    const pc=document.getElementById("paycopy"); if(pc)pc.onclick=async()=>{try{await navigator.clipboard.writeText(P.upi);pc.textContent="Copied";}catch(e){pc.textContent="Select and copy";}};
+    window.scrollTo(0,0);
   }
   function gate(msg){
     const app=document.getElementById("app");const T=(CFG.stats||{});const nav=document.querySelector("nav.tabs");if(nav)nav.style.display="none";
@@ -356,6 +387,7 @@ window.PREP_ENV=(function(){
         <div class="err" id="gateerr">${msg||""}</div>
         <span class="small muted">Unlocking takes a second or two. The course stays encrypted; your code is remembered on this device.</span>
       </form>
+      ${(CFG.pay&&CFG.pay.price&&CFG.pay.whatsapp)?`<button type="button" class="btn" id="getcode" style="width:100%;font-weight:600;border:2px solid #a8701a;color:var(--ink);background:var(--gold-soft)">Don't have a code? Get your code — ₹${fmt(CFG.pay.price)}</button>`:""}
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
         ${tile(fmt(T.lessons),"lessons in "+(T.modules||7)+" subjects")}
         ${tile(fmt(totalQ),"practice questions")}
@@ -379,6 +411,7 @@ window.PREP_ENV=(function(){
       </div>
       <p class="small muted" style="text-align:center;margin:0">Your progress is saved privately in your own Google Drive.</p>
     </div>`;
+    const gc=document.getElementById("getcode"); if(gc)gc.onclick=()=>payScreen();
     const inp=document.getElementById("gatecode"); inp.focus(); inp.oninput=()=>{document.getElementById("gateerr").textContent="";};
     document.getElementById("gateform").onsubmit=async e=>{
       e.preventDefault(); const v=inp.value.trim();
