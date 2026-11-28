@@ -852,6 +852,14 @@ function dayItems(ti,label){
     return `<div class="row" style="justify-content:space-between"><div class="eyebrow">${label} · Week ${e.w} · Day ${ti+1} of ${cal.length}${MAN.phases&&e.p?" · "+esc(phaseName(e.p)):""}</div><span class="small muted">${fmtDate(d)}</span></div><div class="list" style="margin-top:10px">${items.join("")}</div>`;
 }
 function viewHome(){
+  if(ENV.preview){const free=Object.keys(LIDX).filter(k=>!LIDX[k].l.paper);const papers=Object.keys(LIDX).filter(k=>LIDX[k].l.paper);
+    app.innerHTML=`<div class="stack">
+      <div><h1>Welcome to the free preview</h1><p class="muted" style="margin:6px 0 0">Open any of these. They are full lessons, exactly as in the course, with visuals, quick checks and practice questions.</p></div>
+      <section class="card"><div class="eyebrow">Free lessons</div><div class="list" style="margin-top:8px">${free.map(id=>{const x=LIDX[id];const m=modById(x.mid);return `<a class="li" href="#lesson-${id}"><span class="check ${S.done[id]?"on":""}">${S.done[id]?"✓":""}</span><span class="grow"><span class="small muted">${esc(m?m.short:"")} · ${x.l.minutes||25} min</span><br><span class="t">${esc(x.l.title)}</span></span><span class="muted">›</span></a>`;}).join("")}</div></section>
+      ${papers.length?`<section class="card"><div class="eyebrow">Past paper, fully solved</div><div class="list" style="margin-top:8px">${papers.map(id=>`<a class="li" href="#paper-${id}"><span class="grow"><span class="t">${esc(LIDX[id].l.title)}</span><br><span class="small muted">${LIDX[id].l.mcqs.length} questions with answers and explanations</span></span><span class="muted">›</span></a>`).join("")}</div></section>`:""}
+      <section class="card stack" style="gap:8px"><div class="eyebrow">The full course</div><p style="margin:0">All 73 lessons across the 7 subjects, 2,300+ practice questions, full mocks with −0.25 marking, the Bengali names for the interview, and a day-by-day plan fitted to your exam date.</p><button class="btn primary" id="pvunlock">Unlock everything</button></section>
+    </div>`;
+    $("#pvunlock").onclick=()=>ENV.showPay();return;}
   const ti=todayIdx(); const cal=CAL(); const st=stats();
   const total=allLessonCount(); const done=Object.keys(S.done).length;
   let todayHtml="";
