@@ -1,0 +1,109 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code maker · Prep Studio</title><meta name="robots" content="noindex,nofollow">
+<style>
+:root{--bg:#f4f6f9;--s:#fff;--ink:#152033;--mu:#5b6678;--line:#dfe4ec;--gold:#a8701a;--ok:#1f7a4d;--bad:#b3261e}
+@media (prefers-color-scheme:dark){:root{--bg:#0e131a;--s:#161d27;--ink:#e6ebf2;--mu:#9aa5b5;--line:#283241;--gold:#e3ad55}}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:560px;margin:0 auto;padding:18px 14px 60px}h1{font-size:22px;margin:4px 0 2px}
+.card{background:var(--s);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:14px}
+label{display:block;font-weight:600;margin:10px 0 4px}input{width:100%;box-sizing:border-box;font:inherit;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--s);color:var(--ink)}
+button,.b{font:inherit;font-weight:600;padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:var(--s);color:var(--ink);cursor:pointer;text-decoration:none;display:inline-block}
+.p{background:#16231f;color:#fff;border-color:#16231f;width:100%}.wa{background:#25d366;color:#fff;border-color:#25d366}
+.m{color:var(--mu);font-size:14px}.err{color:var(--bad);font-size:14px;min-height:1em}.ok{color:var(--ok)}
+.code{font:700 28px/1.2 ui-monospace,Menlo,monospace;letter-spacing:.06em;text-align:center;padding:12px;border:2px dashed var(--gold);border-radius:12px;margin:10px 0;user-select:all}
+table{width:100%;border-collapse:collapse;font-size:14px}td{padding:7px 4px;border-top:1px solid var(--line);vertical-align:top}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+</style></head><body><main>
+<h1>Code maker</h1><p class="m" style="margin:0">Private tool for making Prep Studio access codes. Everything here stays on this device.</p>
+<div id="v"></div>
+</main>
+<script>
+const REPO="tradevortex360/prep-studio", PATH="ido/keys.json", BRANCH="main", SITE="https://idoexam.netlify.app/ido/";
+const ALPH="abcdefghjkmnpqrstuvwxyz23456789", LS="psmaker_";
+const te=new TextEncoder(), $=s=>document.querySelector(s);
+const b64e=u=>{let s="";new Uint8Array(u).forEach(b=>s+=String.fromCharCode(b));return btoa(s);};
+const b64d=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+const esc=t=>String(t??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const get=k=>{try{return JSON.parse(localStorage.getItem(LS+k)||"null");}catch(e){return null;}};
+const put=(k,v)=>localStorage.setItem(LS+k,JSON.stringify(v));
+function rnd(n){const a=new Uint32Array(n);crypto.getRandomValues(a);let s="";for(const x of a)s+=ALPH[x%ALPH.length];return s;}
+const fmt=(pid,sec)=>pid+"-"+sec.slice(0,4)+"-"+sec.slice(4);
+
+async function gh(method,body){
+  const cfg=get("cfg");const r=await fetch(`https://api.github.com/repos/${REPO}/contents/${PATH}`+(method==="GET"?`?ref=${BRANCH}&t=${Date.now()}`:""),{method,headers:{Authorization:"Bearer "+cfg.token,Accept:"application/vnd.github+json","Content-Type":"application/json"},body:body?JSON.stringify(body):undefined,cache:"no-store"});
+  if(!r.ok){const t=await r.text();throw new Error("GitHub "+r.status+": "+(t.slice(0,160)));}return r.json();
+}
+async function readKeys(){const j=await gh("GET");const txt=new TextDecoder().decode(b64d(j.content.replace(/\n/g,"")));return {keys:JSON.parse(txt),sha:j.sha};}
+async function writeKeys(keys,sha,msg){const txt=JSON.stringify(keys);return gh("PUT",{message:msg,content:b64e(te.encode(txt)),sha,branch:BRANCH});}
+async function kek(secret,salt,iter){const base=await crypto.subtle.importKey("raw",te.encode(secret),"PBKDF2",false,["deriveKey"]);
+  return crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:iter,hash:"SHA-256"},base,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]);}
+async function wrapFor(ck,secret,name,iter){
+  const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12)),iv2=crypto.getRandomValues(new Uint8Array(12));
+  const k=await kek(secret,salt,iter);
+  return {salt:b64e(salt),iv:b64e(iv),wrapped:b64e(await crypto.subtle.encrypt({name:"AES-GCM",iv},k,ck)),iv2:b64e(iv2),nm:b64e(await crypto.subtle.encrypt({name:"AES-GCM",iv:iv2},k,te.encode(name)))};
+}
+async function selfTest(e,secret,iter,ck){const k=await kek(secret,b64d(e.salt),iter);const raw=new Uint8Array(await crypto.subtle.decrypt({name:"AES-GCM",iv:b64d(e.iv)},k,b64d(e.wrapped)));return raw.length===ck.length&&raw.every((x,i)=>x===ck[i]);}
+
+function setup(msg){
+  $("#v").innerHTML=`<div class="card"><b>One-time setup</b>
+  <label>1. Your master.json file</label><input type="file" id="mf" accept=".json,application/json"><div class="m">The private key file you keep. It is read here and never uploaded.</div>
+  <label>2. GitHub token</label><input id="tk" placeholder="github_pat_…" autocomplete="off"><div class="m">A fine-grained token with access to <b>only</b> the prep-studio repository and <b>Contents: Read and write</b>.</div>
+  <div class="err" id="se">${esc(msg||"")}</div><button class="p" id="sv">Save and check</button></div>`;
+  $("#sv").onclick=async()=>{const f=$("#mf").files[0],tk=$("#tk").value.trim(),er=$("#se");er.textContent="";
+    if(!f||!tk){er.textContent="Choose master.json and paste the token.";return;}
+    let m;try{m=JSON.parse(await f.text());}catch(e){er.textContent="That file isn't valid JSON.";return;}
+    if(!m.ck||!m.v){er.textContent="That isn't the master.json file (no course key inside).";return;}
+    put("cfg",{ck:m.ck,v:m.v,token:tk});$("#sv").textContent="Checking…";
+    try{const {keys}=await readKeys();if(keys.v!==m.v){localStorage.removeItem(LS+"cfg");setup("The live site uses key version "+keys.v+" but this file is version "+m.v+". Use the newest master.json.");return;}
+      const known=get("log")||[];if(!known.length&&m.people){put("log",Object.entries(m.people).map(([pid,p])=>({pid,name:p.name,code:fmt(pid,p.secret),date:p.added,src:"master"})));}
+      main("Set up. You can make codes now.");}
+    catch(e){localStorage.removeItem(LS+"cfg");setup("Couldn't reach GitHub with that token: "+e.message);}};
+}
+function main(note){
+  const log=get("log")||[];
+  $("#v").innerHTML=`<div class="card"><b>New buyer</b>
+    <label for="nm">Name to show in the app</label><input id="nm" placeholder="e.g. Rahul Das" autocomplete="off">
+    <label for="ph">Their WhatsApp number (optional)</label><input id="ph" inputmode="tel" placeholder="e.g. 9876543210">
+    <div class="err" id="er"></div><button class="p" id="mk">Make code</button>
+    <div class="m" style="margin-top:6px">${esc(note||"Check the ₹ amount and UTR in your bank app before making a code.")}</div></div>
+    <div id="out"></div>
+    <div class="card"><div class="row" style="justify-content:space-between"><b>Codes made (${log.length})</b><button id="ex">Export list</button></div>
+    <table>${log.slice().reverse().map(x=>`<tr><td><b>${esc(x.name)}</b><br><span class="m">${esc(x.date)}${x.src==="master"?" · from master.json":""}</span></td><td style="font-family:ui-monospace,monospace">${esc(x.code)}</td><td style="text-align:right"><button data-rm="${esc(x.pid)}" style="padding:4px 8px;font-size:13px">Remove</button></td></tr>`).join("")||'<tr><td class="m">None yet.</td></tr>'}</table>
+    <p class="m">"Remove" switches that code off on the live site within a minute or two.</p></div>
+    <p class="m" style="text-align:center"><button id="rs" style="font-size:13px">Forget setup on this device</button></p>`;
+  $("#mk").onclick=make;
+  $("#ex").onclick=()=>{const t=(get("log")||[]).map(x=>[x.date,x.name,x.code,x.phone||""].join("\t")).join("\n");navigator.clipboard.writeText(t).then(()=>{$("#ex").textContent="Copied";},()=>alert(t));};
+  $("#rs").onclick=()=>{if(confirm("Remove the key and token from this device? The list of codes stays.")){localStorage.removeItem(LS+"cfg");setup();}};
+  document.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>remove(b.dataset.rm,b));
+}
+async function make(){
+  const name=$("#nm").value.trim(),phone=$("#ph").value.replace(/\D/g,""),er=$("#er"),bt=$("#mk");er.textContent="";
+  if(!name){er.textContent="Type the buyer's name.";return;}
+  bt.disabled=true;bt.textContent="Making code… (about 10 seconds)";
+  try{
+    const cfg=get("cfg");const ck=b64d(cfg.ck);
+    const {keys,sha}=await readKeys();if(keys.v!==cfg.v)throw new Error("The site's key version changed. Do the setup again with the newest master.json.");
+    let pid=rnd(4);while(keys.people[pid])pid=rnd(4);const sec=rnd(8);
+    const e=await wrapFor(ck,sec,name,keys.iter);
+    if(!await selfTest(e,sec,keys.iter,ck))throw new Error("Self-test failed; nothing was saved.");
+    keys.people[pid]=e;await writeKeys(keys,sha,"Add code "+pid);
+    const code=fmt(pid,sec);const log=get("log")||[];log.push({pid,name,code,phone,date:new Date().toISOString().slice(0,10)});put("log",log);
+    const msg=`Hi ${name}, thank you! Your Prep Studio IDO access code is:\n\n${code}\n\nOpen ${SITE} and enter it. Please keep it to yourself: your name shows inside the app.`;
+    main();
+    $("#out").innerHTML=`<div class="card"><b class="ok">✓ Code made for ${esc(name)}</b><div class="code">${esc(code)}</div>
+      <div class="row"><button id="cpc">Copy code</button><button id="cpm">Copy message</button>${phone?`<a class="b wa" target="_blank" rel="noopener" href="https://wa.me/${(phone.length===10?"91":"")+phone}?text=${encodeURIComponent(msg)}">Send on WhatsApp</a>`:""}</div>
+      <p class="m">It works on the site in about a minute (once Netlify finishes updating).</p></div>`;
+    $("#cpc").onclick=()=>navigator.clipboard.writeText(code).then(()=>$("#cpc").textContent="Copied");
+    $("#cpm").onclick=()=>navigator.clipboard.writeText(msg).then(()=>$("#cpm").textContent="Copied");
+  }catch(e){bt.disabled=false;bt.textContent="Make code";er.textContent=e.message;}
+}
+async function remove(pid,b){
+  const x=(get("log")||[]).find(y=>y.pid===pid);if(!confirm(`Switch off the code for ${x?x.name:pid}? They will need a new code to get back in.`))return;
+  b.disabled=true;b.textContent="Removing…";
+  try{const {keys,sha}=await readKeys();if(keys.people[pid]){delete keys.people[pid];await writeKeys(keys,sha,"Remove code "+pid);}
+    put("log",(get("log")||[]).filter(y=>y.pid!==pid));const rm=get("removed")||[];rm.push(pid);put("removed",rm);main(`Removed ${x?x.name:pid}. Tell Claude "${pid} removed" next time so the main build doesn't bring it back.`);}
+  catch(e){b.disabled=false;b.textContent="Remove";alert(e.message);}
+}
+if(!crypto.subtle){$("#v").innerHTML='<p class="err">Open this page in Chrome or Safari over https.</p>';}
+else if(get("cfg"))main();else setup();
+</script></body></html>
