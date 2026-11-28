@@ -713,8 +713,11 @@ function planEntryLabel(e){
 }
 let USERNAME="";
 function greetText(){const h=new Date().getHours();const g=h<5?"Burning the midnight oil":h<12?"Good morning":h<17?"Good afternoon":"Good evening";const first=(USERNAME||"").trim().split(/\s+/)[0];return first?`${g}, ${first}`:g;}
+function nameNudge(){const el=document.getElementById("namefix");if(!el)return;
+  if(ENV.mode==="gh"&&!USERNAME&&ENV.lock){el.innerHTML=`<div class="card small row" style="gap:10px;align-items:center;justify-content:space-between"><span>Your name isn't showing because this phone unlocked before names were added. Enter your code once more to fix it.</span><button class="btn sm primary" id="relock">Re-enter code</button></div>`;
+    document.getElementById("relock").onclick=()=>{if(confirm("Lock this device and enter your access code again? Your progress is kept."))ENV.lock();};}else el.innerHTML="";}
 async function loadName(){try{let n="";if(ENV.userName)n=await ENV.userName();else if(window.claude&&claude.use){const u=await claude.use("user");if(u){const me=await u.me();n=me&&me.name||"";}}
-  if(n){USERNAME=n;const el=document.getElementById("hello");if(el)el.textContent=greetText();setWatermark(n);}}catch(e){}}
+  if(n){USERNAME=n;const el=document.getElementById("hello");if(el)el.textContent=greetText();setWatermark(n);}}catch(e){}nameNudge();}
 /* faint name watermark across every screen, so a shared screenshot shows whose copy it came from */
 function setWatermark(name){try{const t=String(name).trim().slice(0,40)+" · Prep Studio";const e=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;");
   const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="340" height="220"><text x="20" y="130" transform="rotate(-28 170 110)" font-family="sans-serif" font-size="17" fill="rgb(128,128,128)" fill-opacity="0.13">${e(t)}</text></svg>`;
@@ -759,6 +762,7 @@ function viewHome(){
   const news=(MAN.changelog||[]).filter(c=>c.v>(S.seen||0));
   app.innerHTML=`<div class="stack">
     <div><h1 id="hello" style="font-size:24px">${esc(greetText())}</h1>${ti>=0&&ti<cal.length?`<p class="muted small" style="margin:4px 0 0">Day ${ti+1} of your plan</p>`:""}</div>
+    <div id="namefix"></div>
     ${news.length?`<a class="card" href="#more" style="text-decoration:none;color:var(--ink);border-color:var(--accent);display:flex;align-items:center;gap:12px"><span style="flex:1;min-width:0"><span class="eyebrow" style="color:var(--accent)">What's new</span><br><span class="small">${esc(news[0].items[0])}</span></span><span class="small" style="color:var(--accent);white-space:nowrap">See all ›</span></a>`:""}
     <section class="card today">${todayHtml}</section>
     ${nl?`<section class="card"><div class="eyebrow">Continue learning</div><h3 style="margin:6px 0 4px">${esc(nl.l.title)}</h3><p class="small muted" style="margin:0 0 10px">${esc(nl.m.title)}</p><a class="btn primary" href="#lesson-${nextId}">Open lesson</a></section>`:""}
@@ -766,6 +770,7 @@ function viewHome(){
     <a class="card" href="#cards" style="text-decoration:none;color:var(--ink);display:flex;align-items:center;gap:12px"><span style="flex:1"><span class="eyebrow">Flashcards</span><br><b style="font-size:17px">${n?`${n} card${n>1?"s":""} to review today`:dk.total?"All caught up for today":"Your deck is empty"}</b><br><span class="small muted">${dk.total?`${dk.learned} of ${dk.total} facts learned`:"Finish a lesson to add its key facts"}</span></span><span class="btn sm ${n?"primary":""}">${n?"Start":"Open"}</span></a>`;})()}
     ${BN?(()=>{const bd=bnDeck();const bn=bd.due.length+bd.fresh.length;return `<a class="card" href="#bangla" style="text-decoration:none;color:var(--ink);display:flex;align-items:center;gap:12px"><span style="flex:1"><span class="eyebrow">বাংলা · interview Bengali</span><br><b style="font-size:17px" lang="bn">${bn?`আজ ${bn}টি বাংলা শব্দ`:"বাংলা শব্দ, উত্তর, পড়া ও লেখা"}</b><br><span class="small muted">${bd.total?`${bd.learned} of ${bd.total} terms learned`:"Exact Bengali names of the terms you study"}</span></span><span class="btn sm ${bn?"primary":""}">Open</span></a>`;})():""}
   </div>`;
+  nameNudge();
   const sto=$("#showtoday");if(sto)sto.onclick=()=>{$("#todaybox").hidden=!$("#todaybox").hidden;sto.textContent=$("#todaybox").hidden?"Show today":"Hide today";};
   const ao=$("#aheadon");if(ao)ao.onclick=()=>{S.ahead=1;persist("s");viewHome();};
   const af=$("#aheadoff");if(af)af.onclick=()=>{S.ahead=0;persist("s");viewHome();};
